@@ -38,7 +38,8 @@
 1. **vpn.test.com** - VPN сервис с проксированием на порт 8000
 2. **blog.test.com** - Блог сервис с проксированием на порт 8001
 
-### Проверка работы
+## Проверка работы
+
 
 <img width="1185" height="761" alt="image" src="https://github.com/user-attachments/assets/17a7fe74-5d74-4662-ab7e-7e23e72c177d" />
 
