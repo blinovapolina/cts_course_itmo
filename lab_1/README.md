@@ -67,7 +67,7 @@
 
 ## Проверка работы
 
-<img width="1185" height="761" alt="image" src="https://github.com/user-attachments/assets/17a7fe74-5d74-4662-ab7e-7e23e72c177d" />
+<img width="1336" height="913" alt="image" src="https://github.com/user-attachments/assets/c7e15fce-5d62-4124-90c6-3a38cd00a0aa" />
 
 Для теста были созданы простые html файлы. На скриншоте показан запрос к первому сервису (vpn.test.com). Хосты vpn.test.com и blog.test.com прописаны в файле /etc/hosts, чтобы заменить тестовым сервисом реальный сайт.
 
