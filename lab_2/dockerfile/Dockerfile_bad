@@ -2,7 +2,7 @@ FROM node:latest
 
 RUN apt-get update
 RUN apt-get install -y python3 python3-pip git curl vim
-RUN pip3 install flask mysql-connector-python
+RUN pip3 install flask
 
 RUN cd /usr/src/app
 
