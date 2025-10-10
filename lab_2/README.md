@@ -36,33 +36,88 @@ CMD python3 app.py
 1. `FROM node:latest` \
    Что тут происходит: мы берем последнюю версию образа Node.js \
    Почему плохо: при использовании `latest` появляется уязвимость, так как при пересборке может поменяться версия Node.js, что приведёт к сломанной сборке
-2. `
+2. ```
    RUN apt-get update
-   RUN apt-get install -y python3 python3-pip git curl vim ` \
+   RUN apt-get install -y python3 python3-pip git curl vim
+   ``` 
    Что тут происходит: мы обновляем список пакетов и устанавливает Python и утилиты \
    Почему плохо:
    - Несколько `RUN` подряд: каждый создаёт новый слой, увеличивает размер образа;
    - Нет очистки кеша: временные файлы остаются в слое;
    - Нет `--no-install-recommends`, поэтому устанавливаются ненужные пакеты: образ ещё больше.
-3. `RUN pip3 install flask`
+3. `RUN pip3 install flask` \
    Что тут происходит: мы устанавливаем библиотеку flask \
    Почему плохо:
    - Нет фиксированных версий пакета, поэтому при пересборке можно получить разные версии;
    - Нет очистки кэша.
-4. `RUN cd /usr/src/app`
+4. `RUN cd /usr/src/app` \
     Что тут происходит: меняем текущую директорию \
     Почему плохо: `RUN cd` не сохраняется на следующем слое: в следующей команде контейнер всё ещё будет в исходной директории
-5. `RUN wget https://dl.google.com/... -O /tmp/google-cloud-sdk.tar.gz
-    RUN tar -xzf /tmp/google-cloud-sdk.tar.gz -C /usr/local && rm /tmp/google-cloud-sdk.tar.gz`
+5. ```
+   RUN wget https://dl.google.com/... -O /tmp/google-cloud-sdk.tar.gz
+   RUN tar -xzf /tmp/google-cloud-sdk.tar.gz -C /usr/local && rm /tmp/google-cloud-sdk.tar.gz
+   ```
    Что тут происходит: мы скачиваем Google Cloud SDK и распаковываем его \
    Почему плохо: каждый `RUN` создаёт отдельный слой, поэтому даже после удаления архива размер слоя не уменьшается.
-6. `RUN chmod -R 777 /usr/src/app`
+6. `RUN chmod -R 777 /usr/src/app` \
    Что тут происходит: мы даём всем файлам максимальные права (чтение, запись, выполнение) для всех пользователей \
    Почему плохо: опасно для безопасности, так как любой процесс внутри контейнера может изменить или удалить файлы
-7. `CMD python3 app.py`
+7. `CMD python3 app.py` \
    Что тут происходит: мы запускаем Python-приложение при старте контейнера \
    Почему плохо: сигналы операционки обрабатываются некорректно, так как это строковая форма команды
 #### Хороший Dockerfile
+(из /dockerfile/Dockerfile_good)
+```
+FROM node:22-slim
 
+WORKDIR /usr/src/app
 
+COPY requirements.txt .
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends python3 python3-pip git curl wget vim && \
+    pip3 install --no-cache-dir -r requirements.txt && \
+    wget https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-426.0.0-linux-x86_64.tar.gz -O /tmp/google-cloud-sdk.tar.gz && \
+    tar -xzf /tmp/google-cloud-sdk.tar.gz -C /usr/local && \
+    rm /tmp/google-cloud-sdk.tar.gz && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY . .
+
+RUN useradd -m appuser && chown -R appuser:appuser /usr/src/app
+USER appuser
+
+EXPOSE 5000
+
+CMD ["python3", "app.py"]
+```
+Также был создан файл `requirements.txt` для управления Python-зависимостями:
+```
+flask==3.0.3
+```
+Зачем? Повышает воспроизводимость сборки (всегда одна и та же версия пакета), упрощает обновление библиотек \
+Также был добавлен `.dockerignore` для исключения лишних файлов из контекста сборки:
+```
+node_modules
+.git
+__pycache__
+*.log
+*.pyc
+.env
+.DS_Store
+venv
+```
+Что изменилось?
+| Исправление в хорошем Dockerfile | Что это дает |
+|------|------| 
+| `FROM node:latest` заменён на `FROM node:20-slim` | Образ стал стабильным, устанавливается легкий образ Node.js |
+| Несколько отдельных `RUN`-команд (`apt-get`, `pip3 install`, `wget` и т.д.) были объединены в один `RUN` с логическими операторами &&  | Количество слоёв уменьшилось, размер итогового образа стал меньше |
+| Был добавлен флаг `--no-install-recommends` при установке пакетов | Теперь устанавливаются только необходимые зависимости, без лишних пакетов |
+| Python-зависимости раньше устанавливались напрямую в Dockerfile, а теперь создан отдельный файл `requirements.txt` и подключён через `pip install -r` | Появилась повторяемость сборки и кеширование зависимостей |
+| В `requirements.txt` версии теперь закреплены (`flask==3.0.3`) | Исключена вероятность ошибок при пересборке |
+| `RUN cd /usr/src/app` изменилось на `WORKDIR /usr/src/app` | Рабочая директория теперь фиксируется корректно (запускается эта директория для дальнейших слоев) |
+| Скачивание и распаковка Google Cloud SDK объединено в одном `RUN` | Большой архив удаляется в том же слое, поэтому он не занимает место в образе |
+| Раньше применялось `chmod -R 777 /usr/src/app`, а теперь вместо этого создаётся пользователь `appuser` с собственными правами | Повышена безопасность, нет избыточных прав доступа |
+| Раньше контейнер запускался от `root`, а теперь добавлено `USER appuser` | Контейнер теперь работает от непривилегированного пользователя |
+| `CMD python3 app.py` заменён на `MD ["python3", "app.py"]` | Правильная обработка сигналов операционной системы, более корректный запуск |
 
