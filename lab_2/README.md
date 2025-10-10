@@ -11,3 +11,54 @@
 ### Введение
 Плохой Dockerfile — это такой Dockerfile, который приводит к неэффективным, небезопасным или труднообслуживаемым контейнерам: он долго собирается, создаёт слишком большой образ и может быть ненадежным и небезопасным.
 
+### Выполнение работы
+#### Плохой Dockerfile
+(из /dockerfile/Dockerfile_bad)
+```
+FROM node:latest
+
+RUN apt-get update
+RUN apt-get install -y python3 python3-pip git curl vim
+RUN pip3 install flask
+
+RUN cd /usr/src/app
+
+COPY . /usr/src/app
+
+RUN wget https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-426.0.0-linux-x86_64.tar.gz -O /tmp/google-cloud-sdk.tar.gz
+RUN tar -xzf /tmp/google-cloud-sdk.tar.gz -C /usr/local && rm /tmp/google-cloud-sdk.tar.gz
+
+RUN chmod -R 777 /usr/src/app
+
+CMD python3 app.py
+```
+#### Почему этот Dockerfile плохой?
+1. `FROM node:latest` \
+   Что тут происходит: мы берем последнюю версию образа Node.js \
+   Почему плохо: при использовании `latest` появляется уязвимость, так как при пересборке может поменяться версия Node.js, что приведёт к сломанной сборке
+2. `
+   RUN apt-get update
+   RUN apt-get install -y python3 python3-pip git curl vim ` \
+   Что тут происходит: мы обновляем список пакетов и устанавливает Python и утилиты \
+   Почему плохо:
+   - Несколько `RUN` подряд: каждый создаёт новый слой, увеличивает размер образа;
+   - Нет очистки кеша: временные файлы остаются в слое;
+   - Нет `--no-install-recommends`, поэтому устанавливаются ненужные пакеты: образ ещё больше.
+3. `RUN pip3 install flask`
+   Что тут происходит: мы устанавливаем библиотеку flask \
+   Почему плохо:
+   - Нет фиксированных версий пакета, поэтому при пересборке можно получить разные версии;
+   - Нет очистки кэша.
+4. `RUN cd /usr/src/app`
+    Что тут происходит: меняем текущую директорию \
+    Почему плохо: `RUN cd` не сохраняется на следующем слое: в следующей команде контейнер всё ещё будет в исходной директории
+5. `RUN wget https://dl.google.com/... -O /tmp/google-cloud-sdk.tar.gz
+    RUN tar -xzf /tmp/google-cloud-sdk.tar.gz -C /usr/local && rm /tmp/google-cloud-sdk.tar.gz`
+   Что тут происходит: мы скачиваем Google Cloud SDK и распаковываем его \
+   Почему плохо: каждый `RUN` создаёт отдельный слой, поэтому даже после удаления архива размер слоя не уменьшается.
+6. `RUN chmod -R 777 /usr/src/app`
+   Что тут происходит: мы даём всем файлам максимальные права (чтение, запись, выполнение) для всех пользователей \
+   Почему плохо: опасно для безопасности, так как любой процесс внутри контейнера может изменить или удалить файлы
+7. `CMD python3 app.py`
+   Что тут происходит: мы запускаем Python-приложение при старте контейнера \
+   Почему плохо: 
