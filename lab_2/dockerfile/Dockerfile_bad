@@ -1,0 +1,18 @@
+FROM node:latest
+
+RUN apt-get update
+RUN apt-get install -y python3 python3-pip git curl vim
+RUN pip3 install flask mysql-connector-python
+
+RUN cd /usr/src/app
+
+COPY . /usr/src/app
+
+RUN wget https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-426.0.0-linux-x86_64.tar.gz -O /tmp/google-cloud-sdk.tar.gz
+RUN tar -xzf /tmp/google-cloud-sdk.tar.gz -C /usr/local && rm /tmp/google-cloud-sdk.tar.gz
+
+RUN chmod -R 777 /usr/src/app
+
+CMD python3 app.py
+
+
