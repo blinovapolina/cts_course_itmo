@@ -1,0 +1,127 @@
+name: Docker Build
+
+on:
+  push:
+    branches:
+      - prod
+    paths-ignore:
+      - "docs/**"
+      - "README.md"
+      - "LICENSE"
+      - "**.md"
+      - "tests/**"
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  # Builds and pushes the Docker image
+
+  # Bad practice 1: Hardcoded secret credentials directly in the workflow
+
+  docker-build:
+    name: Build and push Docker image
+    runs-on: ubuntu-latest
+
+    # Bad practice 2: No restriction on Docker build for bots or untrusted actors
+
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: myusername
+          password: mypassword123
+
+      - name: Metadata
+        id: meta
+        run: |
+          repo=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')
+          echo "TAG=ghcr.io/${repo}" >> $GITHUB_OUTPUT
+
+      - name: Build and push release image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/release/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.TAG }}:latest
+            ${{ steps.meta.outputs.TAG }}:${{ github.sha }}
+
+  deploy:
+    name: Deploy
+    needs: docker-build
+    runs-on: ubuntu-latest
+
+    # Bad practice 3: Hardcoded sensitive info and SSH key in plain text instead of using secrets
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install OpenVPN
+        run: |
+          sudo apt update
+          sudo apt install -y openvpn openvpn-systemd-resolved
+
+      - name: Write OpenVPN config
+        run: |
+          cat > client.ovpn <<'OVPN'
+          client
+          dev tun
+          proto udp
+          remote vpn.example.com 1194
+          resolv-retry infinite
+          nobind
+          persist-key
+          persist-tun
+          <ca>
+          ----BEGIN CERTIFICATE----
+          testcert
+          ----END CERTIFICATE----
+          </ca>
+          auth-user-pass
+          OVPN
+          chmod 600 client.ovpn
+          printf '%s\n%s\n' "vpn-user-bad" "vpn-password-bad" > auth.txt
+          chmod 600 auth.txt
+
+      - name: Start OpenVPN
+        run: |
+          sudo openvpn --config client.ovpn --daemon --writepid /tmp/openvpn.pid
+          for i in {1..30}; do
+            ip a show dev tun0 && break
+            sleep 2
+          done
+          ip a show dev tun0 || (echo "tun0 not up" && exit 1)
+
+      - name: Set repository tag
+        id: repo-tag
+        run: |
+          repo=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')
+          echo "TAG=ghcr.io/${repo}" >> $GITHUB_OUTPUT
+
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: 198.51.100.25
+          username: root
+          key: |
+            -----BEGIN OPENSSH PRIVATE KEY-----
+            badkeybadkeybadkeybadkeybadkeybadkeybadkey
+            -----END OPENSSH PRIVATE KEY-----
+          script_stop: true
+          use_insecure_cipher: true
+          timeout: 120s
+          command_timeout: 120s
+          script: |
+            sudo -n /data/scripts/deploy.sh ${{ steps.repo-tag.outputs.TAG }} ${{ secrets.USER }} ${{ secrets.PAT }}
