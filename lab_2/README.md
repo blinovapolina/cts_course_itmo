@@ -76,7 +76,7 @@ COPY requirements.txt .
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends python3 python3-pip git curl wget vim && \
-    pip3 install --no-cache-dir -r requirements.txt && \
+    pip3 install --break-system-packages --no-cache-dir -r requirements.txt && \
     wget https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-426.0.0-linux-x86_64.tar.gz -O /tmp/google-cloud-sdk.tar.gz && \
     tar -xzf /tmp/google-cloud-sdk.tar.gz -C /usr/local && \
     rm /tmp/google-cloud-sdk.tar.gz && \
@@ -120,6 +120,19 @@ venv
 | Раньше применялось `chmod -R 777 /usr/src/app`, а теперь вместо этого создаётся пользователь `appuser` с собственными правами | Повышена безопасность, нет избыточных прав доступа |
 | Раньше контейнер запускался от `root`, а теперь добавлено `USER appuser` | Контейнер теперь работает от непривилегированного пользователя |
 | `CMD python3 app.py` заменён на `СMD ["python3", "app.py"]` | Правильная обработка сигналов операционной системы, более корректный запуск |
+
+### Скриншоты
+Сборка плохого образа:
+<img width="2438" height="1624" alt="image" src="https://github.com/user-attachments/assets/4936899d-eb8a-4723-8b93-b15f5fe6794e" />
+<img width="2436" height="1644" alt="image" src="https://github.com/user-attachments/assets/0ef1a33e-39b1-49ce-99b7-02b4d6bc7893" />
+Сборка хорошего образа:
+<img width="1212" height="487" alt="image" src="https://github.com/user-attachments/assets/6ecf1806-4809-4372-99fb-c2f51c544158" />
+<img width="686" height="37" alt="image" src="https://github.com/user-attachments/assets/98c1f2a2-7576-47f5-bc1a-bd82e6d892c7" />
+<img width="1208" height="143" alt="image" src="https://github.com/user-attachments/assets/f6194ecb-7de1-48ca-857d-72a4c8c3491b" />
+
+
+
+
 
 ![telegram-cloud-photo-size-2-5424997338339997885-x](https://github.com/user-attachments/assets/10462e93-9e64-46cd-990f-77372822e78a)
 
@@ -195,6 +208,7 @@ networks:
 | Удалён volume `.:/app` | Исключены риски случайной утечки лишних или чувствительных файлов внутрь контейнера. |
 | Добавлен `.env.example`, а `.env` — в `.gitignore` | Пример `.env` помогает другим разработчикам быстро настроить окружение, а `.gitignore` защищает от утечек конфиденциальных данных. |
 | Используется версия `3.8` вместо `3` | Расширенные возможности Docker Compose, включая управление сетями и переменными окружения. |
+
 
 
 ![alt text](image.png)
