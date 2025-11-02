@@ -125,7 +125,10 @@ nano /etc/hosts
 
 ### Проверка работы
 
-...
+<img width="1512" height="905" alt="Снимок экрана 2025-11-02 в 22 45 34" src="https://github.com/user-attachments/assets/361022aa-c972-47e9-9fae-09ae1021b18b" />
+<img width="1512" height="905" alt="Снимок экрана 2025-11-02 в 22 45 20" src="https://github.com/user-attachments/assets/7e60d101-784b-4b95-9023-6b02e6125a84" />
+<img width="1302" height="433" alt="image" src="https://github.com/user-attachments/assets/d458a71d-c03c-43f6-8aae-9ebc46c8c840" />
+
 
 ## Задание под звездочкой
 
@@ -135,12 +138,18 @@ nano /etc/hosts
 
 ### Анализ
 
-Заходим на главную страницу сайта и алазиируем какие сайт использует технологии при помощи расширения Wappalyzer, видим, что сайт использует cms Bitrix.
+Заходим на главную страницу сайта и анализируем какие сайт использует технологии при помощи расширения Wappalyzer, видим, что сайт использует cms Bitrix.
+<img width="584" height="638" alt="image" src="https://github.com/user-attachments/assets/4d35ac81-5067-4c59-913c-060d8ffd1224" />
 
 Гуглим дефолтный путь к админ панели Bitrix и находим: /bitrix/admin
 
+<img width="608" height="125" alt="image" src="https://github.com/user-attachments/assets/34061bb1-4bd3-46ed-816d-a01d8211c254" />
+
 По идее, доступ к подобным админ панелям должен быть недоступен для внешнего пользователя, но в нашем случае доступ открыт для всех:
 https://xn----7sbbbucvqex7cwb4i.xn--p1ai/bitrix/admin
+
+
+<img width="726" height="810" alt="image" src="https://github.com/user-attachments/assets/672f1d40-9247-4c2c-8441-73357430de3b" />
 
 ### Решение
 
