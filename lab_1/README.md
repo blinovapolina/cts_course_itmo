@@ -1,121 +1,188 @@
-# Лабораторная работа №1 (Обычная + версия со звездочкой)
+# Лабоработрная работа №1
 
 В данной лабораторной работе мы научимся настраивать веб-сервер Nginx для работы с несколькими pet-проектами, а также проверим возможные уязвимости в конфигурации.
 
-## Реализованные функции
+## Конфиг Nginx
 
-- **HTTPS с SSL сертификатом** - Оба сервиса работают по защищенному HTTPS протоколу
-- **Принудительное перенаправление HTTP на HTTPS** - Все HTTP запросы перенаправляются на HTTPS
-- **Использование alias** - Множественные конфигурации alias для различных путей и статических файлов
-- **Виртуальные хосты** - Два отдельных виртуальных хоста для разных pet проектов
-- **Множественные pet проекты** - VPN сервис и блог сервис работают на разных доменах
+### Реализованные функции
 
-## Pet проекты
+- Редирект 80 на 443
+- Https работает с ssl сертификатом
+- Используется alias
+- Прописаны виртуальные хосты под два тестовых проекта
 
-### 1. VPN сервис (vpn.test.com)
+### Конфиг
 
-- **Порт**: 8000
-- **Функции**: Установлена панель 3x-ui для создания и управления конфигурациями VPN
+```nginx
+server {
+    listen 443 ssl;
 
-### 2. Блог сервис (blog.test.com)
+    # Файлы сертификата
+    ssl_certificate /var/www/certificates/test.com/cert.crt;
+    ssl_certificate_key /var/www/certificates/test.com/cert.key;
 
-- **Порт**: 8001
-- **Функции**: Посты блога, админ панель, API эндпоинты
-- **Использование alias**:
-  - `/static` → `/var/www/pet-projects/blog-service/static/`
-  - `/media` → `/var/www/pet-projects/blog-service/media/`
-  - `/admin-panel` → `/var/www/pet-projects/blog-service/admin/`
+    # домен проекта
+    server_name test.com;
 
-## Детали конфигурации
+    # тут храним статичные файлы сайта
+    root /var/www/websites/test.com;
 
-### SSL конфигурация
+    # идекс файл - index.html
+    index index.html;
 
-- Сертификат: `/var/www/certificates/test.com/cert.crt`
-- Приватный ключ: `/var/www/certificates/test.com/cert.key`
+    # главный роут, если файл индекса не найден - кидаем на 404
+    location / {
+        try_files $uri $uri/ =404;
+    }
 
-### Виртуальные хосты
+    # robots.txt для поисковых систем
+    location /robots.txt {
+        alias /var/www/websites/test.com/static/robots.txt;
+        default_type text/plain;
+        add_header Content-Disposition 'inline';
+    }
+}
 
-1. **vpn.test.com** - VPN сервис с проксированием на порт 8000
-2. **blog.test.com** - Блог сервис с проксированием на порт 8001
+server {
+    listen 80;
+    server_name test.com;
 
-## Ход работы
-
-1. **VPN сервис (vpn.test.com)**
-
-   - HTTPS на 443 порту: строка 5
-   - SSL сертификат и ключ: строки 8–10
-   - Проксирование на порт 8000: строки 16–42
-   - WebSocket поддержка: строки 29–33
-
-2. **Блог сервис (blog.test.com)**
-
-   - HTTPS на 443 порту: строка 49
-   - SSL сертификат и ключ: строки 52–54
-   - Alias для статики: `/static` (строки 61–68), `/media` (строки 71–79), `/admin-panel` (строки 83–88)
-   - Проксирование на порт 8001: строки 96–123
-
-3. **HTTP → HTTPS редиректы**
-
-   - VPN: строки 129–137
-   - Блог: строки 143–150
-
-4. **Кеширование**
-   - `/static`: долгосрочное кеширование (строки 65–68)
-   - `/media`: умеренное кеширование (строки 75–78)
-
-Подробное описание оставленно в комментариях файла [nginx](nginx.conf).
-
-## Проверка работы
-
-<img width="1336" height="913" alt="image" src="https://github.com/user-attachments/assets/c7e15fce-5d62-4124-90c6-3a38cd00a0aa" />
-
-Для теста были созданы простые html файлы. На скриншоте показан запрос к первому сервису (vpn.test.com). Хосты vpn.test.com и blog.test.com прописаны в файле /etc/hosts, чтобы заменить тестовым сервисом реальный сайт.
-
-## Задание под звездочкой
-
-### Уязвимый сайт
-
-Для анализа уязвимостей в веб сервере Nginx был выбран сайт: `www.crut0i.com`
-
-### Анализ
-
-После непродолжительного иссследования был выявлен незащищенный поддомен: `admin.crut0i.com`
-
-Для выявления уязвимости был использован gobuster + seclists:
-
-```Bash
-gobuster dns -d crut0i.com -t 25 -w /usr/share/wordlists/seclists/Discovery/DNS/subdomains-top1million-110000.txt
-```
-
-Данный субдомен направляет на админ панель сервиса `3x-ui` (управление конфигурациями vpn)
-
-> Подобные административные панели стоит скрывать, поскольку любой может попытаться подобрать username и пароль для получения несанкционированного доступа.
-
-### Решение
-
-Для защиты поддомена в конфигурацию nginx можно добавить фильтр по IP адресам, чтобы только указанные IP адреса имели доступ к поддомену:
-
-```Nginx
-geo $allow_ip {
-    default    0;
-    127.0.0.1  1;
+    # редиректим на https
+    return 301 https://$host$request_uri;
 }
 
 server {
     listen 443 ssl;
 
-    ssl_certificate /var/www/certificates/crut0i.com/cert.crt;
-    ssl_certificate_key /var/www/certificates/crut0i.com/cert.key;
+    ssl_certificate /var/www/certificates/test.com/cert.crt;
+    ssl_certificate_key /var/www/certificates/test.com/cert.key;
 
-    server_name admin.crut0i.com;
+    server_name test2.test.com;
+    root /var/www/websites/test2.test.com;
+    index index.html;
 
-    # Перенаправляем пользователя на основной домен, если IP не подходит
-    if ($allow_ip = 0) { return 302 https://www.crut0i.com; }
+    location / {
+        try_files $uri $uri/ =404;
+    }
+}
 
-    ...
+server {
+    listen 80;
+    server_name test2.test.com;
+    return 301 https://$host$request_uri;
 }
 ```
 
-## Вывод
+### Docker
 
-В ходе выполнения данной лабораторной работы мы научились настраивать виртуальные хосты Nginx, конфигурировать HTTPS с SSL сертификатами и использовать директиву `alias` для статических файлов.
+Тестовые html файлы и конфиг nginx завернем в Docker контейнер
+
+```Dockerfile
+# Используем alpine (минимальный образ, чтобы не загружать систему)
+FROM nginx:alpine
+
+# Обоновляемся, ставим openssl и создаем папки
+RUN apk update && \
+    apk add --no-cache openssl && \
+    mkdir -p /var/www/websites/test.com \
+    /var/www/websites/test2.test.com \
+    /var/www/certificates/test.com
+
+# Копируем статичные файлы
+COPY index.html /var/www/websites/test.com/
+COPY index2.html /var/www/websites/test2.test.com/
+
+COPY static/ /var/www/websites/test.com/static/
+COPY static/ /var/www/websites/test2.test.com/static/
+
+# Делаем самоподписный ssl сертификат
+RUN openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+    -keyout /var/www/certificates/test.com/cert.key \
+    -out /var/www/certificates/test.com/cert.crt \
+    -subj "/C=RU/ST=State/L=City/O=Organization/CN=test.com"
+
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Открываем нужные порты
+EXPOSE 80 443
+
+# Стартуем nginx
+CMD ["nginx", "-g", "daemon off;"]
+```
+
+Для проверки работы сайта нам нужно отредактировать хосты на своем пк:
+
+```bash
+nano /etc/hosts
+
+# ----
+
+127.0.0.1 test.com
+127.0.0.1 test2.test.com
+```
+
+Теперь при открытии test.com у нас будет открываться наша локальная версия, а не идти запрос через dns (например 1.1.1.1) и потом к рельному test.com.
+
+### Проверка работы
+
+<img width="1512" height="905" alt="Снимок экрана 2025-11-02 в 22 45 34" src="https://github.com/user-attachments/assets/361022aa-c972-47e9-9fae-09ae1021b18b" />
+<img width="1512" height="905" alt="Снимок экрана 2025-11-02 в 22 45 20" src="https://github.com/user-attachments/assets/7e60d101-784b-4b95-9023-6b02e6125a84" />
+<img width="1302" height="433" alt="image" src="https://github.com/user-attachments/assets/d458a71d-c03c-43f6-8aae-9ebc46c8c840" />
+
+
+## Задание под звездочкой
+
+### Уязвимый сайт
+
+Я выбрала сайт продажи электронной техники: https://xn----7sbbbucvqex7cwb4i.xn--p1ai/
+
+### Анализ
+
+Заходим на главную страницу сайта и анализируем какие сайт использует технологии при помощи расширения Wappalyzer, видим, что сайт использует cms Bitrix.
+<img width="584" height="638" alt="image" src="https://github.com/user-attachments/assets/4d35ac81-5067-4c59-913c-060d8ffd1224" />
+
+Гуглим дефолтный путь к админ панели Bitrix и находим: /bitrix/admin
+
+<img width="608" height="125" alt="image" src="https://github.com/user-attachments/assets/34061bb1-4bd3-46ed-816d-a01d8211c254" />
+
+По идее, доступ к подобным админ панелям должен быть недоступен для внешнего пользователя, но в нашем случае доступ открыт для всех:
+https://xn----7sbbbucvqex7cwb4i.xn--p1ai/bitrix/admin
+
+
+<img width="726" height="810" alt="image" src="https://github.com/user-attachments/assets/672f1d40-9247-4c2c-8441-73357430de3b" />
+
+### Решение
+
+Решается все элементарно
+
+В конфиге nginx разрешим доступ к пути /bitrix/admin только юезрам с определенным ip адресом
+
+```nginx
+# Разрешаем только 127.0.0.1
+geo $allowed_ips {
+    default   0;
+    127.0.0.1 1;
+}
+
+server {
+    listen 443 ssl;
+
+    ssl_certificate /var/www/certificates/test.com/cert.crt;
+    ssl_certificate_key /var/www/certificates/test.com/cert.key;
+
+    # Домен на русском
+    server_name xn----7sbbbucvqex7cwb4i.xn--p1ai;
+
+    # Защищаем роут админ панели
+    location /bitrix/admin {
+        if ( $allowed_ips = 0 ) { return 404; }
+        # оставшийся конфиг
+    }
+
+    # оставшийся конфиг
+}
+```
+
+В этом конфиге мы указали список разрешенных ip адресов в geo $allowed_ips (127.0.0.1) и добавили в роут /bitrix/admin условие, которое будет проверять ip пользователя и если его нет в списке разрешенных выдавать 404 ошибку (не найдено). Это предовратит попытки брутфорса пароля администратора.
+
+Также можно заменить логику фильтрации по IP, например, проверкой заголовка password и если в нем будет указан верный пароль, будем пропускать юзера на роут.
