@@ -153,7 +153,8 @@ venv
 Сборка хорошего образа:
 <img width="1212" height="487" alt="image" src="https://github.com/user-attachments/assets/6ecf1806-4809-4372-99fb-c2f51c544158" />
 <img width="686" height="37" alt="image" src="https://github.com/user-attachments/assets/98c1f2a2-7576-47f5-bc1a-bd82e6d892c7" />
-<img width="1208" height="143" alt="image" src="https://github.com/user-attachments/assets/f6194ecb-7de1-48ca-857d-72a4c8c3491b" />
+<img width="1220" height="195" alt="image" src="https://github.com/user-attachments/assets/d61dac8a-ecb3-4cfe-8a8c-bb043924d2fd" />
+
 
 ![telegram-cloud-photo-size-2-5424997338339997885-x](https://github.com/user-attachments/assets/10462e93-9e64-46cd-990f-77372822e78a)
 
@@ -240,4 +241,5 @@ networks:
 | Используется версия `3.8` вместо `3`                                                            | Расширенные возможности Docker Compose, включая управление сетями и переменными окружения.                                         |
 
 ![alt text](image.png)
+
 
