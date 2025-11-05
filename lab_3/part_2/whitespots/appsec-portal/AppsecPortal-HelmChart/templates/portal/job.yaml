@@ -1,0 +1,33 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migration
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation
+    "meta.helm.sh/release-namespace": {{ .Release.Namespace | default "default" }}
+spec:
+  ttlSecondsAfterFinished: 30
+  template:
+    spec:
+      {{- if .Values.postgresql.enabled }}
+      initContainers:
+        - name: wait-for-db
+          image: {{ .Values.dbhelper.image.repository }}:{{ .Values.global.image.tag }} 
+          command: ['sh', '-c', 'until nc -z  {{ template "postgres.host" .}} {{ .Values.postgresql.containerPorts.postgresql }}; do echo waiting for pod {{ template "postgres.host" .}}; sleep 5; done;']
+          envFrom:
+          - configMapRef:
+              name: {{ template "portal.fullname" . }}-config
+          - secretRef:
+              name: {{ template "portal.fullname" . }}-secret
+      {{- end }}
+      containers:
+        - name: init-db
+          image: {{ .Values.portal.backend.image.repository }}:{{ .Values.global.image.tag }}
+          command: ["/bin/sh", "-c", "python manage.py migrate --no-input && python manage.py collectstatic --no-input || true"]
+          envFrom:
+          - configMapRef:
+              name: {{ template "portal.fullname" . }}-config
+          - secretRef:
+              name: {{ template "portal.fullname" . }}-secret
+      restartPolicy: Never

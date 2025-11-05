@@ -1,0 +1,119 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  {{- with (mergeOverwrite (deepCopy .Values.global.deploymentAnnotations) .Values.dbhelper.deploymentAnnotations) }}
+  annotations:
+    {{- range $key, $value := . }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+  {{- end }}
+  name: {{ template "dbhelper.fullname" . }}
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "portal.labels" (dict "context" . "component" .Values.dbhelper.name "name" .Values.dbhelper.name) | nindent 4 }}
+spec:
+  {{- with include "portal.strategy" (mergeOverwrite (deepCopy .Values.global.deploymentStrategy) .Values.dbhelper.deploymentStrategy) }}
+  strategy:
+    {{- trim . | nindent 4 }}
+  {{- end }}
+  replicas: {{ .Values.dbhelper.replicas }}
+  selector:
+    matchLabels:
+      {{- include "portal.selectorLabels" (dict "context" . "name" .Values.dbhelper.name) | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        {{- with (mergeOverwrite (deepCopy .Values.global.podAnnotations) .Values.dbhelper.podAnnotations) }}
+        {{- range $key, $value := . }}
+        {{ $key }}: {{ $value | quote }}
+        {{- end }}
+        {{- end }}
+      labels:
+        {{- include "portal.labels" (dict "context" . "component" .Values.dbhelper.name "name" .Values.dbhelper.name) | nindent 8 }}
+        {{- with (mergeOverwrite (deepCopy .Values.global.podLabels) .Values.dbhelper.podLabels) }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      restartPolicy: Always
+      {{- with .Values.dbhelper.imagePullSecrets | default .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with.Values.global.securityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if or .Values.global.nodeSelector .Values.dbhelper.nodeSelector }}
+      nodeSelector: {{ default .Values.global.nodeSelector .Values.dbhelper.nodeSelector | toYaml | nindent 8 }}
+      {{- end }}
+      {{- if or .Values.global.tolerations .Values.dbhelper.tolerations }}
+      tolerations: {{ default .Values.global.tolerations .Values.dbhelper.tolerations | toYaml | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ template "dbhelper.fullname" . }}
+      initContainers:
+        - name: wait-for-rabbitmq
+          image: {{ .Values.global.initContainers.utility.image.repository }}:{{ .Values.global.initContainers.utility.image.tag }}
+          imagePullPolicy: {{ default .Values.global.image.imagePullPolicy .Values.global.initContainers.utility.imagePullPolicy }}
+          env:
+           {{- if .Values.rabbitmq.enabled }}
+            - name: RABBITMQ_HOST
+              value: {{- include "rabbitmq.host" . | quote | indent 1  }}
+            - name: RABBITMQ_PORT
+              value: {{ .Values.rabbitmq.containerPorts.amqp | quote }}
+            {{- else if .Values.externalRabbitmq.enabled }}
+            - name: RABBITMQ_HOST
+              value: {{ .Values.externalRabbitmq.host | quote  }}
+            - name: RABBITMQ_PORT
+              value: {{ .Values.externalRabbitmq.port | quote  }}
+            {{- end }}
+          {{- with .Values.global.initContainers.utility.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 10 }}
+          {{- end }}
+          command: ['sh', '-c', 'until nc -z  $RABBITMQ_HOST $RABBITMQ_PORT; do echo waiting for pod $RABBITMQ_HOST; sleep 5; done;']
+      containers:
+      - name: {{ .Values.dbhelper.name }}
+        image: {{ .Values.dbhelper.image.repository }}:{{ .Values.global.image.tag }}
+        imagePullPolicy: {{ default .Values.global.image.imagePullPolicy .Values.dbhelper.image.imagePullPolicy }}
+        command: ["sh", "entrypoint_clean.sh"]
+        envFrom:
+        - configMapRef:
+            name: {{ template "portal.fullname" . }}-config
+        - secretRef:
+            name: {{ template "portal.fullname" . }}-secret
+        resources:
+          {{- toYaml .Values.dbhelper.resources | nindent 10 }}
+        {{- with .Values.dbhelper.containerSecurityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      - name: {{ .Values.dbhelper.name }}-automation
+        image: {{ .Values.dbhelper.image.repository }}:{{ .Values.global.image.tag }}
+        imagePullPolicy: {{ default .Values.global.image.imagePullPolicy .Values.dbhelper.image.imagePullPolicy }}
+        command: ["sh", "entrypoint_automation.sh"]
+        envFrom:
+        - configMapRef:
+            name: {{ template "portal.fullname" . }}-config
+        - secretRef:
+            name: {{ template "portal.fullname" . }}-secret
+        resources:
+          {{- toYaml .Values.dbhelper.resources | nindent 10 }}
+        {{- with .Values.dbhelper.containerSecurityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      - name: {{ .Values.dbhelper.name }}-importer
+        image: {{ .Values.dbhelper.image.repository }}:{{ .Values.global.image.tag }}
+        imagePullPolicy: {{ default .Values.global.image.imagePullPolicy .Values.dbhelper.image.imagePullPolicy }}
+        command: ["sh", "entrypoint_importer.sh"]
+        envFrom:
+        - configMapRef:
+            name: {{ template "portal.fullname" . }}-config
+        - secretRef:
+            name: {{ template "portal.fullname" . }}-secret
+        resources:
+          {{- toYaml .Values.dbhelper.resources | nindent 10 }}
+        {{- with .Values.dbhelper.containerSecurityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}

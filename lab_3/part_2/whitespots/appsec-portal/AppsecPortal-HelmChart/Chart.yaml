@@ -1,0 +1,16 @@
+apiVersion: v2
+name: portal
+appVersion: release_v25.10.1
+description: Helm Chart for Appsec Portal
+type: application
+version: 25.10.1
+
+dependencies:
+- name: rabbitmq
+  version: 11.0.0
+  repository: https://charts.bitnami.com/bitnami 
+  condition: rabbitmq.enabled
+- name: postgresql
+  version: 12.0.0
+  repository: https://charts.bitnami.com/bitnami 
+  condition: postgresql.enabled

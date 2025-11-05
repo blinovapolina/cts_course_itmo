@@ -1,0 +1,91 @@
+stages:
+  - install
+  - update
+
+.image:
+  image: $CI_REGISTRY/whitespots-public/security-images/toolset:latest
+
+.when_manual:
+  when: manual
+
+.tags:
+  tags:
+    - gitlab-org-docker
+
+before_script:
+    - mkdir ~/.ssh && chmod 700 ~/.ssh
+    - eval $(ssh-agent -s)
+    - echo "$SSH_KEY_PRIVATE" | ssh-add -
+    - export SSH_KEY_PRIVATE=""
+    - echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config 
+    - ls -la ~/.ssh
+    - IMAGE_VERSION=$(curl "https://gitlab.com/api/v4/projects/37960926/repository/tags" |jq '.[] .name' | head -n 1 | sed 's/\"//g')
+
+update:
+    stage: update
+    extends:
+        - .image
+        - .when_manual
+        - .tags
+    script:
+        - ssh $SEC_PORTAL_USER@$SEC_PORTAL_HOST "cd $WORK_DIR/appsec-portal &&
+                sed -e \"s/.*IMAGE_VERSION.*/IMAGE_VERSION=$IMAGE_VERSION/\" .env > tmp.txt && mv tmp.txt .env &&
+                sh update.sh && sh run.sh"
+
+install:
+    stage: install
+    extends:
+        - .image
+        - .when_manual
+        - .tags
+    script:
+        - ssh $SEC_PORTAL_USER@$SEC_PORTAL_HOST "cd $WORK_DIR && 
+                git clone https://gitlab.com/whitespots-public/appsec-portal.git &&
+                cd $WORK_DIR/appsec-portal &&
+                if [ -f ".env" ]; then > .env; else touch .env; fi &&
+                echo "DB_NAME=$(echo $DB_NAME)" >> .env &&
+                echo "DB_USER=$(echo $DB_USER)" >> .env &&
+                echo "DB_PASS=$(echo $DB_PASS)" >> .env &&
+                echo "DB_HOST=$(echo $DB_HOST)" >> .env &&
+                echo "DB_PORT=$(echo $DB_PORT)" >> .env &&
+                echo "RABBITMQ_DEFAULT_USER=$(echo $RABBITMQ_DEFAULT_USER)" >> .env &&
+                echo "RABBITMQ_DEFAULT_PASS=$(echo $RABBITMQ_DEFAULT_PASS)" >> .env &&
+                echo "AMQP_HOST_STRING=$(echo $AMQP_HOST_STRING)" >> .env &&
+                echo "COOKIES_SECURE=$(echo $COOKIES_SECURE)" >> .env &&
+                echo "DOMAIN=$(echo $DOMAIN)" >> .env &&
+                echo "IMAGE_VERSION=$(echo $IMAGE_VERSION)" >> .env"
+                
+        - openssl genrsa -out jwt-private.pem 2048
+        - openssl rsa -in jwt-private.pem -pubout -outform PEM -out jwt-public.pem
+
+        - sed -i -e ' 1 s/.*/&\\n/' jwt-public.pem jwt-private.pem
+        - sed -i -e '$s/^/\\n/' jwt-public.pem jwt-private.pem
+
+        - JWT_PRIVATE_KEY=$(tr -d '\n' < jwt-private.pem)
+        - JWT_PUBLIC_KEY=$(tr -d '\n' < jwt-public.pem)
+        - SECRET_KEY=$(openssl rand -base64 30)
+
+        - ssh $SEC_PORTAL_USER@$SEC_PORTAL_HOST "cd $WORK_DIR/appsec-portal &&
+                echo "JWT_PRIVATE_KEY="'""$JWT_PRIVATE_KEY""'"" >> .env &&
+                echo "JWT_PUBLIC_KEY="'""$JWT_PUBLIC_KEY""'"" >> .env &&
+                echo "SECRET_KEY=$(echo $SECRET_KEY)" >> .env"
+
+        - ssh $SEC_PORTAL_USER@$SEC_PORTAL_HOST "cd $WORK_DIR/appsec-portal &&
+                docker-compose up -d"
+        - sleep 20        
+        - ssh $SEC_PORTAL_USER@$SEC_PORTAL_HOST "cd $WORK_DIR/appsec-portal &&
+                docker-compose exec -T back /bin/sh -c "DJANGO_SUPERUSER_PASSWORD=admin python3 manage.py createsuperuser --no-input --username admin --email admin@gmail.com""
+
+variables:
+        DB_NAME: "postgres"
+        DB_USER: "postgres"
+        DB_PASS: "postgres"
+        DB_HOST: "postgres"
+        DB_PORT: "5432"
+        RABBITMQ_DEFAULT_USER: "admin"
+        RABBITMQ_DEFAULT_PASS: "mypass"
+        AMQP_HOST_STRING: "amqp://admin:mypass@rabbitmq:5672/"
+        DOMAIN: "http://localhost"
+        COOKIES_SECURE: "False"
+        WORK_DIR: "/opt"
+

@@ -1,0 +1,296 @@
+nameOverride: portal
+fullnameOverride:
+# Global configuration applied to all components
+global:
+  image:
+    tag: "release_v25.10.1"
+    imagePullPolicy: IfNotPresent
+  initContainers:
+    utility:
+      image:
+        repository: "docker"
+        tag: "dind"
+  deploymentAnnotations: {}
+  podAnnotations: {}
+  podLabels: {}
+  additionalLabels: {}
+  securityContext: {}
+  imagePullSecrets: []
+  deploymentStrategy: {}
+  networkPolicy:
+    create: false
+    defaultDenyIngress: false
+  nodeSelector: {}
+  tolerations: []
+  envFrom: []
+
+configs:
+  configMap:
+    create: true
+    annotations: {}
+    labels: {}
+    database:
+      host:
+    rabbitmq:
+      host:
+    cookies_secure: false
+    domain: "localhost"
+    debug: "False"
+    gunicorn_workers: 2
+    gunicorn_threads: 5
+    importer_gunicorn_workers: 2
+    importer_gunicorn_threads: 5
+    license_server: https://oleg.whitespots.io/
+    license_server_public_key: '-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1FNL5uDzHbXyxgpTbVfE\nXtSn9yjo4wVRTllv8sUHmOCRfDWi7jMtRllIrZODbdPXy1qpfDAJjCw/8mRGR1QZ\nPPjUvcHT2cHFmYqjnO7jt3ywls8Sq+x2R6rG4EonKTWxJ27CoM6q8pl4z/Oqea9t\nwy9DQB9lTUipWLGGWenRtURt5YniGe6mLl/GFX1NVbDZOv7q+N/lHyBu/jFoWnnA\nfuqh9NzFM8yh+h81m+IXqFEU/4y9GRYHx2TKfCg36kYkEHF84DhV8DAiC+wmQbI5\nXNmlBHaW3yIiSnUWqC/QVlsdd8edXKh3pnpLsZ8+4Ni0+3+bV6UXtKUXD4oE2xAT\nvwIDAQAB\n-----END PUBLIC KEY-----'
+  secret:
+    create: true
+    labels: {}
+    annotations: {}
+    jwt_private_key: '-----BEGIN RSA PRIVATE KEY-----\nMIIEpQIBAAKCAQEAtpzWykO+IOj1QdNrxvqRH7HQzHvzQoQBxLauTpVl0HMvB7k4\nnLPGMvopSF+KcNkLqMqoX/nGbvzpFqpzvM6CsCuXxCfFmxDvT3+0XDPbVUzzETGV\nwNpVivsLnhZQ4Tp43mUTC+NjEPOpBYvFetSMkhKCN1Qfy/2pDSWdkNAGsDeJ3xzo\nQ+ff2txaZA11EIEk3S/odGT57Xx0oVRL3ngkLFpIsCQi73Q+XgB2ORslvGGDpZm0\n4QNhX618s/tIiRIM+y+ZKIHUpDVG0P4Pc4NzqJnciXYrt8a+CB5Zcv9BShLL/8oF\nfqcHcv3a2x7huODGb2wX76AY2gxin378ln7m1QIDAQABAoIBAQCOlraspuq9vclL\nxe8hJqPM0MaN9LcEmBjdZhuC5uriMh5l9H289i7rvSQhC+EIrqGJAf0pO9py7W5/\nsUbABaxMLS3LD5cftsB2HexSFnfMClK9eS9Kr/EdnVr77MbopwSb+uY9YScIpIm0\n9+eSOocsw+EDnN9bJE0tI9L9sUGXs+KhYGKsbeft96Jf264Pz7Ygz6MLeKRQ4zWJ\nk1LYpInqS1CL382pNgjCSGBsDoksQc+olpD7mdN5Bkpalmhu0UvDOfDekzPLkVd4\n2PBhzxghTaknuuEb7Nh5RgWKCIsYiKjWnCiO3DOFE6Wf9flkjTSq0o31zu5Z+Cy2\noYAuGDD9AoGBAPAootd7tiyt79L0hUgElqo0J4GGme+HtOo0uIsBQ3IBVOTHbaox\nlkKP2IZAMmT39VRM+xIBCJcT7zyjPsUNkJbLXsjYHuE7Q5Hzbd5QPmCEwLtZxst5\nWix0C5wr+8o1ZEMpYkFLySLG170U9PdBsKeiWt/jhXRAGkMHKo9/U8y3AoGBAMKo\neCd/+mixHF9giKRAf/LBiXNqOGY7vVpszeCw59KYkpsEZAAffDEzrcoZpEQHDD1h\nru6VgZ72uXnRAkuYyuHqfZgoJRs6IkB8+GLADNSVxjelar7dXj5+dt48CEbszU3L\nh5UUKWqKqlevw5Cs9A1zpiTAExQD/nyMzsGv6DTTAoGBAORkYOk417mJ+UfQD2i8\nJGTdkKyXy5GGp8EMPmzD2NZ0+b1RA7QV0Gag0jRqnQJ05bU0OJmYrgivhpdOUIWq\nLtWZtxyenE9qwwnsTZJdEdVMqtYBvRMI537bJadyFNTrDdzpYG3kmvYd0FIbuhPj\nPxNNTcsaX3J8+/y+tfUeDB3lAoGANPh3SfhvghHAMMwqIthSeRLlfnzHQDq9el/l\nXmGFlC9kpb56H/Zxa0ou3rI/myt3zzRH0DDrBwEI0/dmcn/vpa6T4tX50wDs1TOs\nu+KbGzZurDHdbHb88HCllDAt6G8EJ0ldadoEszNsy1PPGg2WlBqGebWy+11i4S3I\nDbj6rXUCgYEArKNxIDXdfNN6GdEWEAPW0JEXL/0krnn9udoiD/WcF14yNOp+4rbD\n5bBzHTUp6kM2srPnndSB/msNeESZ+cAi/utr3xm+6WtTGLMRC0Tr7Mw3O+Tjgol6\nLxIA1AUcgJ7lAKOnilPorj7fhk6FLuhd3rX83uxspECO3IC0u5Eac8s=\n-----END RSA PRIVATE KEY-----'
+    jwt_public_key: '-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtpzWykO+IOj1QdNrxvqR\nH7HQzHvzQoQBxLauTpVl0HMvB7k4nLPGMvopSF+KcNkLqMqoX/nGbvzpFqpzvM6C\nsCuXxCfFmxDvT3+0XDPbVUzzETGVwNpVivsLnhZQ4Tp43mUTC+NjEPOpBYvFetSM\nkhKCN1Qfy/2pDSWdkNAGsDeJ3xzoQ+ff2txaZA11EIEk3S/odGT57Xx0oVRL3ngk\nLFpIsCQi73Q+XgB2ORslvGGDpZm04QNhX618s/tIiRIM+y+ZKIHUpDVG0P4Pc4Nz\nqJnciXYrt8a+CB5Zcv9BShLL/8oFfqcHcv3a2x7huODGb2wX76AY2gxin378ln7m\n1QIDAQAB\n-----END PUBLIC KEY-----'
+    secret_key: "kq3u4gfi347fgi3qyg4fq3y48foq38y4fioqfy8gioqy8g4iffo3ql2pfo9aughlvbvzxcmnvke"
+
+portal:
+  name: portal
+  replicas: 1
+
+  backend:
+    name: backend
+    image:
+      repository: registry.gitlab.com/whitespots-public/appsec-portal/back/appsecportal
+      imagePullPolicy: Always
+    containerPorts:
+      access: 8000
+      import: 8001
+    resources: {}
+
+  frontend:
+    name: frontend
+    image:
+      repository: registry.gitlab.com/whitespots-public/appsec-portal/front
+      imagePullPolicy: Always
+    containerPorts:
+      http: 80
+    containerSecurityContext:
+      privileged: false
+      runAsNonRoot: false
+      allowPrivilegeEscalation: true
+    command: '["nginx", "-g", "daemon off;"]'
+
+  serviceAccount:
+    create: true
+    annotations: {}
+  resources: {}
+  imagePullSecrets: []
+  deploymentAnnotations: {}
+  podAnnotations: {}
+  podLabels: {}
+  resources: {}
+  service:
+    annotations: {}
+    labels: {}
+    type: ClusterIP
+    servicePortAccess: 8000
+    servicePortImport: 8001
+    servicePortHttp: 80
+    servicePortAccessName: access
+    servicePortImportName: import
+    servicePortHttpName: http
+  nodeSelector: {}
+  deploymentStrategy: {}
+
+dbhelper:
+  name: db-helper
+  image:
+    repository: registry.gitlab.com/whitespots-public/appsec-portal/back/db_helper
+    imagePullPolicy: Always
+  replicas: 1
+  serviceAccount:
+    create: true
+    annotations: {}
+  imagePullSecrets: []
+  deploymentAnnotations: {}
+  podAnnotations: {}
+  podLabels: {}
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  deploymentStrategy: {}
+
+importer:
+  name: importer
+  image:
+    repository: registry.gitlab.com/whitespots-public/appsec-portal/back/importer
+    imagePullPolicy: Always
+  replicas: 1
+  command: "celery -A importer_service worker -Q importer_service"
+  serviceAccount:
+    create: true
+    annotations: {}
+  imagePullSecrets: []
+  deploymentAnnotations: {}
+  podAnnotations: {}
+  podLabels: {}
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  deploymentStrategy: {}
+
+jirahelper:
+  name: jira-helper
+  image:
+    repository: registry.gitlab.com/whitespots-public/appsec-portal/back/jira_helper
+    imagePullPolicy: Always
+  replicas: 1
+  command: "celery -A jira_helper_service worker -Q jira_helper_service"
+  serviceAccount:
+    create: true
+    annotations: {}
+  imagePullSecrets: []
+  deploymentAnnotations: {}
+  podAnnotations: {}
+  podLabels: {}
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  deploymentStrategy: {}
+
+webhook:
+  ingress:
+    enabled: false
+    annotations: {}
+    labels: {}
+    ingressClassName: ""
+    host: ""
+    path:
+      - /api/v1/jira-helper/jira-event/your-webhook/
+    pathType: Prefix
+
+rabbitmq:
+  nameOverride: rabbitmq
+  enabled: false
+  image:
+    repository: bitnami/rabbitmq
+  auth:
+    username: admin
+    password: pass
+    erlangCookie: demo
+    vhost: ""
+  containerPorts:
+    amqp: "5672"
+  serviceAccount:
+    create: true
+    automountServiceAccountToken: true
+  podSecurityContext:
+    enabled: true
+    fsGroupChangePolicy: Always
+    sysctls: []
+    supplementalGroups: []
+    fsGroup: 1001
+  containerSecurityContext:
+    enabled: false
+    seLinuxOptions: null
+    runAsUser: 1001
+    runAsGroup: 1001
+    runAsNonRoot: true
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: false
+    capabilities:
+      drop: ["ALL"]
+    seccompProfile:
+      type: "RuntimeDefault"
+  persistence:
+    enabled: false
+  networkPolicy:
+    enabled: false
+  cluster:
+    enabled: false
+  resources:
+    requests:
+      memory: 512Mi
+      cpu: 500m
+    limits:
+      memory: 1Gi
+      cpu: 1
+
+externalRabbitmq:
+  enabled: false
+  scheme: "amqps"
+  host: ""
+  port: "5672"
+  username: ""
+  password: ""
+  existingPasswordSecret: ""
+  existingSecretPasswordKey: ""
+  skipSslVerify: false
+  vhost: ""
+
+postgresql:
+  nameOverride: postgres
+  enabled: true
+  image:
+    repository: bitnami/postgresql
+  auth:
+    database: appsec
+    username: appsec
+    password: appsec
+  serviceAccount:
+    create: true
+    automountServiceAccountToken: false
+    name: postgres-portal
+  rbac:
+    create: true
+  containerPorts:
+    postgresql: 5432
+  primary:
+    podSecurityContext:
+      enabled: true
+      fsGroup: 1001
+    containerSecurityContext:
+      enabled: true
+      runAsUser: 1001
+      runAsNonRoot: true
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: false
+      capabilities:
+        drop:
+          - ALL
+    persistence:
+      enabled: false
+  readReplicas:
+    podSecurityContext:
+      enabled: true
+      fsGroup: 1001
+    containerSecurityContext:
+      enabled: true
+      runAsUser: 1001
+      runAsNonRoot: true
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+          - ALL
+    persistence:
+      enabled: false
+  networkPolicy:
+    enabled: false
+
+externalPostgresql:
+  enabled: false
+  host: ""
+  port: "5432"
+  database: ""
+  username: ""
+  password: ""
+  existingSecret: ""
+  existingSecretPasswordKey: ""
+
+ingress:
+  enabled: true
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 4g
+  labels: {}
+  ingressClassName: ""
+  host: ""
+  path: "/"
+  pathType: Prefix

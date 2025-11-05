@@ -1,0 +1,181 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  {{- with (mergeOverwrite (deepCopy .Values.global.deploymentAnnotations) .Values.portal.deploymentAnnotations) }}
+  annotations:
+    {{- range $key, $value := . }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+  {{- end }}
+  name: {{ template "portal.fullname" . }}
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "portal.labels" (dict "context" . "component" .Values.portal.name "name" .Values.portal.name) | nindent 4 }}
+spec:
+  {{- with include "portal.strategy" (mergeOverwrite (deepCopy .Values.global.deploymentStrategy) .Values.portal.deploymentStrategy) }}
+  strategy:
+    {{- trim . | nindent 4 }}
+  {{- end }}
+  replicas: {{ .Values.portal.replicas }}
+  selector:
+    matchLabels:
+      {{- include "portal.selectorLabels" (dict "context" . "name" .Values.portal.name) | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        {{- with (mergeOverwrite (deepCopy .Values.global.podAnnotations) .Values.portal.podAnnotations) }}
+        {{- range $key, $value := . }}
+        {{ $key }}: {{ $value | quote }}
+        {{- end }}
+        {{- end }}
+      labels:
+        {{- include "portal.labels" (dict "context" . "component" .Values.portal.name "name" .Values.portal.name) | nindent 8 }}
+        {{- with (mergeOverwrite (deepCopy .Values.global.podLabels) .Values.portal.podLabels) }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      restartPolicy: Always
+      {{- with .Values.portal.imagePullSecrets | default .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with.Values.global.securityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if or .Values.global.nodeSelector .Values.portal.nodeSelector }}
+      nodeSelector: {{ default .Values.global.nodeSelector .Values.portal.nodeSelector | toYaml | nindent 8 }}
+      {{- end }}
+      {{- if or .Values.global.tolerations .Values.portal.tolerations }}
+      tolerations: {{ default .Values.global.tolerations .Values.portal.tolerations | toYaml | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ template "portal.fullname" . }}
+      initContainers:
+        - name: wait-for-rabbitmq
+          image: {{ .Values.global.initContainers.utility.image.repository }}:{{ .Values.global.initContainers.utility.image.tag }}
+          imagePullPolicy: {{ default .Values.global.image.imagePullPolicy .Values.global.initContainers.utility.imagePullPolicy }}
+          env:
+           {{- if .Values.rabbitmq.enabled }}
+            - name: RABBITMQ_HOST
+              value: {{- include "rabbitmq.host" . | quote | indent 1  }}
+            - name: RABBITMQ_PORT
+              value: {{ .Values.rabbitmq.containerPorts.amqp | quote }}
+            {{- else if .Values.externalRabbitmq.enabled }}
+            - name: RABBITMQ_HOST
+              value: {{ .Values.externalRabbitmq.host | quote  }}
+            - name: RABBITMQ_PORT
+              value: {{ .Values.externalRabbitmq.port | quote  }}
+            {{- end }}
+          {{- with .Values.global.initContainers.utility.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 10 }}
+          {{- end }}
+          command: ['sh', '-c', 'until nc -z  $RABBITMQ_HOST $RABBITMQ_PORT; do echo waiting for pod $RABBITMQ_HOST; sleep 5; done;']
+      containers:
+      - name: {{ .Values.portal.backend.name }}
+        image: {{ .Values.portal.backend.image.repository }}:{{ .Values.global.image.tag }}
+        imagePullPolicy: {{ default .Values.global.image.imagePullPolicy .Values.portal.backend.image.imagePullPolicy }}
+        command: ['sh', 'entrypoint_django.sh']
+        envFrom:
+        - configMapRef:
+            name: {{ template "portal.fullname" . }}-config
+        - secretRef:
+            name: {{ template "portal.fullname" . }}-secret
+        ports:
+        - name: access
+          containerPort: {{ .Values.portal.backend.containerPorts.access }}
+          protocol: TCP
+        # - name: import
+        #   containerPort: {{ .Values.portal.backend.containerPorts.import }}
+        #   protocol: TCP
+        resources:
+          {{- toYaml .Values.portal.backend.resources | nindent 10 }}
+        {{- with .Values.portal.backend.containerSecurityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        volumeMounts:
+        - name: django-admin-static
+          mountPath: /usr/src/app/static
+      - name: {{ .Values.portal.backend.name }}-import-api
+        image: {{ .Values.portal.backend.image.repository }}:{{ .Values.global.image.tag }}
+        imagePullPolicy: {{ default .Values.global.image.imagePullPolicy .Values.portal.backend.image.imagePullPolicy }}
+        command: ['sh', 'entrypoint_importer.sh']
+        envFrom:
+        - configMapRef:
+            name: {{ template "portal.fullname" . }}-config
+        - secretRef:
+            name: {{ template "portal.fullname" . }}-secret
+        ports:
+        # - name: access
+        #   containerPort: {{ .Values.portal.backend.containerPorts.access }}
+        #   protocol: TCP
+        - name: import
+          containerPort: {{ .Values.portal.backend.containerPorts.import }}
+          protocol: TCP
+        resources:
+          {{- toYaml .Values.portal.backend.resources | nindent 10 }}
+        {{- with .Values.portal.backend.containerSecurityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        volumeMounts:
+        - name: django-admin-static
+          mountPath: /usr/src/app/static
+      - name: {{ .Values.portal.backend.name }}-celery-worker
+        image: {{ .Values.portal.backend.image.repository }}:{{ .Values.global.image.tag }}
+        imagePullPolicy: {{ default .Values.global.image.imagePullPolicy .Values.portal.backend.image.imagePullPolicy }}
+        command: ['sh', 'entrypoint_celery_worker.sh']
+        envFrom:
+        - configMapRef:
+            name: {{ template "portal.fullname" . }}-config
+        - secretRef:
+            name: {{ template "portal.fullname" . }}-secret
+        resources:
+          {{- toYaml .Values.portal.backend.resources | nindent 10 }}
+        {{- with .Values.portal.backend.containerSecurityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      - name: {{ .Values.portal.backend.name }}-celery-beat
+        image: {{ .Values.portal.backend.image.repository }}:{{ .Values.global.image.tag }}
+        imagePullPolicy: {{ default .Values.global.image.imagePullPolicy .Values.portal.backend.image.imagePullPolicy }}
+        command: ['sh', 'entrypoint_celery_beat.sh']
+        envFrom:
+        - configMapRef:
+            name: {{ template "portal.fullname" . }}-config
+        - secretRef:
+            name: {{ template "portal.fullname" . }}-secret
+        resources:
+          {{- toYaml .Values.portal.backend.resources | nindent 10 }}
+        {{- with .Values.portal.backend.containerSecurityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+
+      - name: {{ .Values.portal.frontend.name }}
+        image: {{ .Values.portal.frontend.image.repository }}:{{ .Values.global.image.tag }}
+        imagePullPolicy: {{ default .Values.global.image.imagePullPolicy .Values.portal.frontend.image.imagePullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.portal.frontend.containerPorts.http }}
+          protocol: TCP
+        command: {{ .Values.portal.frontend.command }}
+        {{- with .Values.portal.frontend.containerSecurityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        volumeMounts:
+        - name: {{ template "nginx.volume.name" . }}
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
+          readOnly: true
+        - name: django-admin-static
+          mountPath: /usr/src/app/static
+      volumes:
+      - configMap:
+          defaultMode: 420
+          name: {{ template "nginx.volume.name" . }}
+        name: {{ template "nginx.volume.name" . }}
+      - name: django-admin-static
+        emptyDir: {}

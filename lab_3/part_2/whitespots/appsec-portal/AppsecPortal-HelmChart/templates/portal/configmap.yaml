@@ -1,0 +1,34 @@
+{{- if .Values.configs.configMap.create }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "portal.fullname" . }}-config
+  namespace: {{ .Release.Namespace | quote }}
+  {{- with  (deepCopy .Values.configs.configMap.annotations) }}
+  annotations:
+  {{- range $key, $value := . }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+  {{- end }}
+  {{- with (mergeOverwrite (deepCopy .Values.global.additionalLabels) .Values.configs.configMap.labels) }}
+  labels:
+  {{- range $key, $value := . }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+  {{- end }}
+data: 
+  COOKIES_SECURE: {{ .Values.configs.configMap.cookies_secure | quote }}
+  DOMAIN: {{ template "portal.base_url" . }}
+  DB_HOST: {{ template "postgres.host" . }}
+  DB_PORT: {{ template "postgres.port" . }}
+  DB_NAME: {{ template "postgres.database.name" . }}
+  DB_USER: {{ template "postgres.user" . }}
+  DEBUG: {{ .Values.configs.configMap.debug | quote }}
+  BROKER_SSL_SKIP_VERIFY: {{ .Values.externalRabbitmq.skipSslVerify | quote }}
+  GUNICORN_WORKERS: {{ .Values.configs.configMap.gunicorn_workers | quote }}
+  GUNICORN_THREADS: {{ .Values.configs.configMap.gunicorn_threads | quote }}
+  IMPORTER_GUNICORN_WORKERS: {{ .Values.configs.configMap.importer_gunicorn_workers | quote }}
+  IMPORTER_GUNICORN_THREADS: {{ .Values.configs.configMap.importer_gunicorn_threads | quote }}
+  LICENSE_SERVER: {{ .Values.configs.configMap.license_server | quote }}
+  LICENSE_SERVER_PUBLIC_KEY: {{ .Values.configs.configMap.license_server_public_key | quote }}
+{{- end }}

@@ -1,0 +1,49 @@
+{{- if .Values.ingress.enabled -}}
+{{- $servicePort := .Values.portal.frontend.containerPorts.http -}}
+{{- $path := .Values.ingress.path -}}
+{{- $pathType := .Values.ingress.pathType -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ template "portal.fullname" . }}-ingress
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "portal.labels" (dict "context" . "component" .Values.portal.name "name" .Values.portal.name) | nindent 4 }}
+    {{- with .Values.ingress.labels }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- if .Values.ingress.annotations }}
+  annotations:
+    {{- range $key, $value := .Values.ingress.annotations }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+  {{- end }}
+spec:
+  {{- with .Values.ingress.ingressClassName }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  rules:
+  {{- if .Values.ingress.host }}
+    {{- $host := .Values.ingress.host }}
+    - host: {{ $host | quote }}
+      http:
+        paths:
+          - path: {{ $path }}
+            pathType: {{ $pathType }}
+            backend:
+              service:
+                name: {{ template "portal.fullname" . }}
+                port:
+                  number: {{ $servicePort }}
+  {{- else }}
+    - http:
+        paths:
+          - path: {{ $path }}
+            pathType: {{ $pathType }}
+            backend:
+              service:
+                name: {{ template "portal.fullname" . }}
+                port:
+                  number: {{ $servicePort }}
+  {{- end -}}
+{{- end -}}

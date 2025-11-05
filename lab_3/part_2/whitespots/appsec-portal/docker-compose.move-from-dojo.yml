@@ -1,0 +1,299 @@
+version: "3.4"
+
+services:
+  postgres:
+    image: postgres:14.3-alpine
+    restart: always
+    volumes:
+      - ./data/db:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=${DB_PASS:-postgres}
+      - POSTGRES_USER=${DB_USER:-postgres}
+      - POSTGRES_DB=${DB_NAME:-postgres}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:4.0.4
+    restart: always
+    command: ["sh", "/etc/rabbitmq/start.sh"]
+    healthcheck:
+      test: ["CMD-SHELL", "rabbitmqctl status"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER:-admin}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS:-mypass}
+    volumes:
+      - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
+      - ./rabbitmq.sh:/etc/rabbitmq/start.sh
+    deploy:
+      resources:
+        limits:
+          memory: 3GB
+        reservations:
+          memory: 1GB
+
+  back:
+    image: "registry.gitlab.com/whitespots-public/appsec-portal/back/appsecportal:$IMAGE_VERSION"
+    entrypoint: ['sh', 'entrypoint_django.sh']
+    restart: always
+    volumes:
+      - ./back/AppSecPortal/static:/usr/src/app/static
+      - ./back/AppSecPortal/media:/usr/src/app/media
+    environment:
+      - DEBUG=${DEBUG:-False}
+      - DB_PASS=${DB_PASS:-postgres}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_NAME=${DB_NAME:-postgres}
+      - DB_HOST=${DB_HOST:-postgres}
+      - DB_PORT=${DB_PORT:-5432}
+      - GUNICORN_WORKERS=${GUNICORN_WORKERS:-1}
+      - GUNICORN_THREADS=${GUNICORN_THREADS:-5}
+      - IMPORTER_GUNICORN_WORKERS=${IMPORTER_GUNICORN_WORKERS:-1}
+      - IMPORTER_GUNICORN_THREADS=${IMPORTER_GUNICORN_THREADS:-5}
+      - AMQP_HOST_STRING=${AMQP_HOST_STRING:-amqp://admin:mypass@rabbitmq:5672/}
+      - LICENSE_SERVER_PUBLIC_KEY=${LICENSE_SERVER_PUBLIC_KEY:------BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1FNL5uDzHbXyxgpTbVfE\nXtSn9yjo4wVRTllv8sUHmOCRfDWi7jMtRllIrZODbdPXy1qpfDAJjCw/8mRGR1QZ\nPPjUvcHT2cHFmYqjnO7jt3ywls8Sq+x2R6rG4EonKTWxJ27CoM6q8pl4z/Oqea9t\nwy9DQB9lTUipWLGGWenRtURt5YniGe6mLl/GFX1NVbDZOv7q+N/lHyBu/jFoWnnA\nfuqh9NzFM8yh+h81m+IXqFEU/4y9GRYHx2TKfCg36kYkEHF84DhV8DAiC+wmQbI5\nXNmlBHaW3yIiSnUWqC/QVlsdd8edXKh3pnpLsZ8+4Ni0+3+bV6UXtKUXD4oE2xAT\nvwIDAQAB\n-----END PUBLIC KEY-----}
+      - LICENSE_SERVER=${LICENSE_SERVER:-https://oleg.whitespots.io/}
+      - DOMAIN=${DOMAIN:-example.com}
+      - SECRET_KEY=${SECRET_KEY:-kq3u4gfi347fgi3qyg4fq3y48foq38y4fioqfy8gioqy8g4iffo3ql2pfo9aughlvbvzxcmnvke}
+      - CORS_ORIGIN_WHITELIST=${CORS_ORIGIN_WHITELIST}
+      - JWT_PRIVATE_KEY=${JWT_PRIVATE_KEY:------BEGIN RSA PRIVATE KEY-----\nMIIEpQIBAAKCAQEAtpzWykO+IOj1QdNrxvqRH7HQzHvzQoQBxLauTpVl0HMvB7k4\nnLPGMvopSF+KcNkLqMqoX/nGbvzpFqpzvM6CsCuXxCfFmxDvT3+0XDPbVUzzETGV\nwNpVivsLnhZQ4Tp43mUTC+NjEPOpBYvFetSMkhKCN1Qfy/2pDSWdkNAGsDeJ3xzo\nQ+ff2txaZA11EIEk3S/odGT57Xx0oVRL3ngkLFpIsCQi73Q+XgB2ORslvGGDpZm0\n4QNhX618s/tIiRIM+y+ZKIHUpDVG0P4Pc4NzqJnciXYrt8a+CB5Zcv9BShLL/8oF\nfqcHcv3a2x7huODGb2wX76AY2gxin378ln7m1QIDAQABAoIBAQCOlraspuq9vclL\nxe8hJqPM0MaN9LcEmBjdZhuC5uriMh5l9H289i7rvSQhC+EIrqGJAf0pO9py7W5/\nsUbABaxMLS3LD5cftsB2HexSFnfMClK9eS9Kr/EdnVr77MbopwSb+uY9YScIpIm0\n9+eSOocsw+EDnN9bJE0tI9L9sUGXs+KhYGKsbeft96Jf264Pz7Ygz6MLeKRQ4zWJ\nk1LYpInqS1CL382pNgjCSGBsDoksQc+olpD7mdN5Bkpalmhu0UvDOfDekzPLkVd4\n2PBhzxghTaknuuEb7Nh5RgWKCIsYiKjWnCiO3DOFE6Wf9flkjTSq0o31zu5Z+Cy2\noYAuGDD9AoGBAPAootd7tiyt79L0hUgElqo0J4GGme+HtOo0uIsBQ3IBVOTHbaox\nlkKP2IZAMmT39VRM+xIBCJcT7zyjPsUNkJbLXsjYHuE7Q5Hzbd5QPmCEwLtZxst5\nWix0C5wr+8o1ZEMpYkFLySLG170U9PdBsKeiWt/jhXRAGkMHKo9/U8y3AoGBAMKo\neCd/+mixHF9giKRAf/LBiXNqOGY7vVpszeCw59KYkpsEZAAffDEzrcoZpEQHDD1h\nru6VgZ72uXnRAkuYyuHqfZgoJRs6IkB8+GLADNSVxjelar7dXj5+dt48CEbszU3L\nh5UUKWqKqlevw5Cs9A1zpiTAExQD/nyMzsGv6DTTAoGBAORkYOk417mJ+UfQD2i8\nJGTdkKyXy5GGp8EMPmzD2NZ0+b1RA7QV0Gag0jRqnQJ05bU0OJmYrgivhpdOUIWq\nLtWZtxyenE9qwwnsTZJdEdVMqtYBvRMI537bJadyFNTrDdzpYG3kmvYd0FIbuhPj\nPxNNTcsaX3J8+/y+tfUeDB3lAoGANPh3SfhvghHAMMwqIthSeRLlfnzHQDq9el/l\nXmGFlC9kpb56H/Zxa0ou3rI/myt3zzRH0DDrBwEI0/dmcn/vpa6T4tX50wDs1TOs\nu+KbGzZurDHdbHb88HCllDAt6G8EJ0ldadoEszNsy1PPGg2WlBqGebWy+11i4S3I\nDbj6rXUCgYEArKNxIDXdfNN6GdEWEAPW0JEXL/0krnn9udoiD/WcF14yNOp+4rbD\n5bBzHTUp6kM2srPnndSB/msNeESZ+cAi/utr3xm+6WtTGLMRC0Tr7Mw3O+Tjgol6\nLxIA1AUcgJ7lAKOnilPorj7fhk6FLuhd3rX83uxspECO3IC0u5Eac8s=\n-----END RSA PRIVATE KEY-----}
+      - JWT_PUBLIC_KEY=${JWT_PUBLIC_KEY:------BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtpzWykO+IOj1QdNrxvqR\nH7HQzHvzQoQBxLauTpVl0HMvB7k4nLPGMvopSF+KcNkLqMqoX/nGbvzpFqpzvM6C\nsCuXxCfFmxDvT3+0XDPbVUzzETGVwNpVivsLnhZQ4Tp43mUTC+NjEPOpBYvFetSM\nkhKCN1Qfy/2pDSWdkNAGsDeJ3xzoQ+ff2txaZA11EIEk3S/odGT57Xx0oVRL3ngk\nLFpIsCQi73Q+XgB2ORslvGGDpZm04QNhX618s/tIiRIM+y+ZKIHUpDVG0P4Pc4Nz\nqJnciXYrt8a+CB5Zcv9BShLL/8oFfqcHcv3a2x7huODGb2wX76AY2gxin378ln7m\n1QIDAQAB\n-----END PUBLIC KEY-----}
+      - COOKIES_SECURE=${COOKIES_SECURE:-True}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthcheck/"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 2GB
+        reservations:
+          memory: 512M
+
+  back-celery-worker:
+    image: "registry.gitlab.com/whitespots-public/appsec-portal/back/appsecportal:$IMAGE_VERSION"
+    entrypoint: ['sh', 'entrypoint_celery_worker.sh']
+    restart: always
+    environment:
+      - AMQP_HOST_STRING=${AMQP_HOST_STRING:-amqp://admin:mypass@rabbitmq:5672/}
+      - DB_PASS=${DB_PASS:-postgres}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_NAME=${DB_NAME:-postgres}
+      - DB_HOST=${DB_HOST:-postgres}
+      - DB_PORT=${DB_PORT:-5432}
+    healthcheck:
+      test: ["CMD", "celery", "-A", "AppSec.celery", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 1GB
+        reservations:
+          memory: 256M
+
+  back-celery-beat:
+    image: "registry.gitlab.com/whitespots-public/appsec-portal/back/appsecportal:$IMAGE_VERSION"
+    entrypoint: ['sh', 'entrypoint_celery_beat.sh']
+    restart: always
+    environment:
+      - AMQP_HOST_STRING=${AMQP_HOST_STRING:-amqp://admin:mypass@rabbitmq:5672/}
+      - DB_PASS=${DB_PASS:-postgres}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_NAME=${DB_NAME:-postgres}
+      - DB_HOST=${DB_HOST:-postgres}
+      - DB_PORT=${DB_PORT:-5432}
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "celery.*beat.*AppSec.celery"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 1GB
+        reservations:
+          memory: 256M
+
+
+  nginx:
+    image: "registry.gitlab.com/whitespots-public/appsec-portal/front:$IMAGE_VERSION"
+    restart: always
+    command: ["nginx", "-g", "daemon off;"]
+    links:
+      - back:back
+    depends_on:
+      - back
+      - jira_helper
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./back/AppSecPortal/static:/var/www/static
+      - ./back/AppSecPortal/media:/var/www/media
+    deploy:
+      resources:
+        limits:
+          memory: 300M
+        reservations:
+          memory: 50M
+
+
+  db_helper:
+    image: "registry.gitlab.com/whitespots-public/appsec-portal/back/db_helper:$IMAGE_VERSION"
+    user: nobody
+    restart: always
+    entrypoint: ['sh', 'entrypoint_clean.sh']
+    environment:
+      - SERVICE_WORKER_CONCURRENCY=${SERVICE_WORKER_CONCURRENCY:-2}
+      - JIRA_WORKER_CONCURRENCY=${JIRA_WORKER_CONCURRENCY:-2}
+      - DJANGO_WORKER_CONCURRENCY=${DJANGO_WORKER_CONCURRENCY:-2}
+      - DB_PASS=${DB_PASS:-postgres}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_NAME=${DB_NAME:-postgres}
+      - DB_HOST=${DB_HOST:-postgres}
+      - DB_PORT=${DB_PORT:-5432}
+      - DOMAIN=${DOMAIN:-example.com}
+      - AMQP_HOST_STRING=${AMQP_HOST_STRING:-amqp://admin:mypass@rabbitmq:5672/}
+      - LICENSE_SERVER_PUBLIC_KEY=${LICENSE_SERVER_PUBLIC_KEY:------BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1FNL5uDzHbXyxgpTbVfE\nXtSn9yjo4wVRTllv8sUHmOCRfDWi7jMtRllIrZODbdPXy1qpfDAJjCw/8mRGR1QZ\nPPjUvcHT2cHFmYqjnO7jt3ywls8Sq+x2R6rG4EonKTWxJ27CoM6q8pl4z/Oqea9t\nwy9DQB9lTUipWLGGWenRtURt5YniGe6mLl/GFX1NVbDZOv7q+N/lHyBu/jFoWnnA\nfuqh9NzFM8yh+h81m+IXqFEU/4y9GRYHx2TKfCg36kYkEHF84DhV8DAiC+wmQbI5\nXNmlBHaW3yIiSnUWqC/QVlsdd8edXKh3pnpLsZ8+4Ni0+3+bV6UXtKUXD4oE2xAT\nvwIDAQAB\n-----END PUBLIC KEY-----}
+      - JWT_PRIVATE_KEY=${JWT_PRIVATE_KEY:------BEGIN RSA PRIVATE KEY-----\nMIIEpQIBAAKCAQEAtpzWykO+IOj1QdNrxvqRH7HQzHvzQoQBxLauTpVl0HMvB7k4\nnLPGMvopSF+KcNkLqMqoX/nGbvzpFqpzvM6CsCuXxCfFmxDvT3+0XDPbVUzzETGV\nwNpVivsLnhZQ4Tp43mUTC+NjEPOpBYvFetSMkhKCN1Qfy/2pDSWdkNAGsDeJ3xzo\nQ+ff2txaZA11EIEk3S/odGT57Xx0oVRL3ngkLFpIsCQi73Q+XgB2ORslvGGDpZm0\n4QNhX618s/tIiRIM+y+ZKIHUpDVG0P4Pc4NzqJnciXYrt8a+CB5Zcv9BShLL/8oF\nfqcHcv3a2x7huODGb2wX76AY2gxin378ln7m1QIDAQABAoIBAQCOlraspuq9vclL\nxe8hJqPM0MaN9LcEmBjdZhuC5uriMh5l9H289i7rvSQhC+EIrqGJAf0pO9py7W5/\nsUbABaxMLS3LD5cftsB2HexSFnfMClK9eS9Kr/EdnVr77MbopwSb+uY9YScIpIm0\n9+eSOocsw+EDnN9bJE0tI9L9sUGXs+KhYGKsbeft96Jf264Pz7Ygz6MLeKRQ4zWJ\nk1LYpInqS1CL382pNgjCSGBsDoksQc+olpD7mdN5Bkpalmhu0UvDOfDekzPLkVd4\n2PBhzxghTaknuuEb7Nh5RgWKCIsYiKjWnCiO3DOFE6Wf9flkjTSq0o31zu5Z+Cy2\noYAuGDD9AoGBAPAootd7tiyt79L0hUgElqo0J4GGme+HtOo0uIsBQ3IBVOTHbaox\nlkKP2IZAMmT39VRM+xIBCJcT7zyjPsUNkJbLXsjYHuE7Q5Hzbd5QPmCEwLtZxst5\nWix0C5wr+8o1ZEMpYkFLySLG170U9PdBsKeiWt/jhXRAGkMHKo9/U8y3AoGBAMKo\neCd/+mixHF9giKRAf/LBiXNqOGY7vVpszeCw59KYkpsEZAAffDEzrcoZpEQHDD1h\nru6VgZ72uXnRAkuYyuHqfZgoJRs6IkB8+GLADNSVxjelar7dXj5+dt48CEbszU3L\nh5UUKWqKqlevw5Cs9A1zpiTAExQD/nyMzsGv6DTTAoGBAORkYOk417mJ+UfQD2i8\nJGTdkKyXy5GGp8EMPmzD2NZ0+b1RA7QV0Gag0jRqnQJ05bU0OJmYrgivhpdOUIWq\nLtWZtxyenE9qwwnsTZJdEdVMqtYBvRMI537bJadyFNTrDdzpYG3kmvYd0FIbuhPj\nPxNNTcsaX3J8+/y+tfUeDB3lAoGANPh3SfhvghHAMMwqIthSeRLlfnzHQDq9el/l\nXmGFlC9kpb56H/Zxa0ou3rI/myt3zzRH0DDrBwEI0/dmcn/vpa6T4tX50wDs1TOs\nu+KbGzZurDHdbHb88HCllDAt6G8EJ0ldadoEszNsy1PPGg2WlBqGebWy+11i4S3I\nDbj6rXUCgYEArKNxIDXdfNN6GdEWEAPW0JEXL/0krnn9udoiD/WcF14yNOp+4rbD\n5bBzHTUp6kM2srPnndSB/msNeESZ+cAi/utr3xm+6WtTGLMRC0Tr7Mw3O+Tjgol6\nLxIA1AUcgJ7lAKOnilPorj7fhk6FLuhd3rX83uxspECO3IC0u5Eac8s=\n-----END RSA PRIVATE KEY-----}
+    depends_on:
+      back:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 2GB
+        reservations:
+          memory: 512M
+
+  db_helper_automation:
+    image: "registry.gitlab.com/whitespots-public/appsec-portal/back/db_helper:$IMAGE_VERSION"
+    user: nobody
+    restart: always
+    entrypoint: ['sh', 'entrypoint_automation.sh']
+    environment:
+      - AUTOMATION_WORKER_CONCURRENCY=${AUTOMATION_WORKER_CONCURRENCY:-3}
+      - DB_PASS=${DB_PASS:-postgres}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_NAME=${DB_NAME:-postgres}
+      - DB_HOST=${DB_HOST:-postgres}
+      - DB_PORT=${DB_PORT:-5432}
+      - DOMAIN=${DOMAIN:-example.com}
+      - AMQP_HOST_STRING=${AMQP_HOST_STRING:-amqp://admin:mypass@rabbitmq:5672/}
+      - LICENSE_SERVER_PUBLIC_KEY=${LICENSE_SERVER_PUBLIC_KEY:------BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1FNL5uDzHbXyxgpTbVfE\nXtSn9yjo4wVRTllv8sUHmOCRfDWi7jMtRllIrZODbdPXy1qpfDAJjCw/8mRGR1QZ\nPPjUvcHT2cHFmYqjnO7jt3ywls8Sq+x2R6rG4EonKTWxJ27CoM6q8pl4z/Oqea9t\nwy9DQB9lTUipWLGGWenRtURt5YniGe6mLl/GFX1NVbDZOv7q+N/lHyBu/jFoWnnA\nfuqh9NzFM8yh+h81m+IXqFEU/4y9GRYHx2TKfCg36kYkEHF84DhV8DAiC+wmQbI5\nXNmlBHaW3yIiSnUWqC/QVlsdd8edXKh3pnpLsZ8+4Ni0+3+bV6UXtKUXD4oE2xAT\nvwIDAQAB\n-----END PUBLIC KEY-----}
+      - JWT_PRIVATE_KEY=${JWT_PRIVATE_KEY:------BEGIN RSA PRIVATE KEY-----\nMIIEpQIBAAKCAQEAtpzWykO+IOj1QdNrxvqRH7HQzHvzQoQBxLauTpVl0HMvB7k4\nnLPGMvopSF+KcNkLqMqoX/nGbvzpFqpzvM6CsCuXxCfFmxDvT3+0XDPbVUzzETGV\nwNpVivsLnhZQ4Tp43mUTC+NjEPOpBYvFetSMkhKCN1Qfy/2pDSWdkNAGsDeJ3xzo\nQ+ff2txaZA11EIEk3S/odGT57Xx0oVRL3ngkLFpIsCQi73Q+XgB2ORslvGGDpZm0\n4QNhX618s/tIiRIM+y+ZKIHUpDVG0P4Pc4NzqJnciXYrt8a+CB5Zcv9BShLL/8oF\nfqcHcv3a2x7huODGb2wX76AY2gxin378ln7m1QIDAQABAoIBAQCOlraspuq9vclL\nxe8hJqPM0MaN9LcEmBjdZhuC5uriMh5l9H289i7rvSQhC+EIrqGJAf0pO9py7W5/\nsUbABaxMLS3LD5cftsB2HexSFnfMClK9eS9Kr/EdnVr77MbopwSb+uY9YScIpIm0\n9+eSOocsw+EDnN9bJE0tI9L9sUGXs+KhYGKsbeft96Jf264Pz7Ygz6MLeKRQ4zWJ\nk1LYpInqS1CL382pNgjCSGBsDoksQc+olpD7mdN5Bkpalmhu0UvDOfDekzPLkVd4\n2PBhzxghTaknuuEb7Nh5RgWKCIsYiKjWnCiO3DOFE6Wf9flkjTSq0o31zu5Z+Cy2\noYAuGDD9AoGBAPAootd7tiyt79L0hUgElqo0J4GGme+HtOo0uIsBQ3IBVOTHbaox\nlkKP2IZAMmT39VRM+xIBCJcT7zyjPsUNkJbLXsjYHuE7Q5Hzbd5QPmCEwLtZxst5\nWix0C5wr+8o1ZEMpYkFLySLG170U9PdBsKeiWt/jhXRAGkMHKo9/U8y3AoGBAMKo\neCd/+mixHF9giKRAf/LBiXNqOGY7vVpszeCw59KYkpsEZAAffDEzrcoZpEQHDD1h\nru6VgZ72uXnRAkuYyuHqfZgoJRs6IkB8+GLADNSVxjelar7dXj5+dt48CEbszU3L\nh5UUKWqKqlevw5Cs9A1zpiTAExQD/nyMzsGv6DTTAoGBAORkYOk417mJ+UfQD2i8\nJGTdkKyXy5GGp8EMPmzD2NZ0+b1RA7QV0Gag0jRqnQJ05bU0OJmYrgivhpdOUIWq\nLtWZtxyenE9qwwnsTZJdEdVMqtYBvRMI537bJadyFNTrDdzpYG3kmvYd0FIbuhPj\nPxNNTcsaX3J8+/y+tfUeDB3lAoGANPh3SfhvghHAMMwqIthSeRLlfnzHQDq9el/l\nXmGFlC9kpb56H/Zxa0ou3rI/myt3zzRH0DDrBwEI0/dmcn/vpa6T4tX50wDs1TOs\nu+KbGzZurDHdbHb88HCllDAt6G8EJ0ldadoEszNsy1PPGg2WlBqGebWy+11i4S3I\nDbj6rXUCgYEArKNxIDXdfNN6GdEWEAPW0JEXL/0krnn9udoiD/WcF14yNOp+4rbD\n5bBzHTUp6kM2srPnndSB/msNeESZ+cAi/utr3xm+6WtTGLMRC0Tr7Mw3O+Tjgol6\nLxIA1AUcgJ7lAKOnilPorj7fhk6FLuhd3rX83uxspECO3IC0u5Eac8s=\n-----END RSA PRIVATE KEY-----}
+    depends_on:
+      back:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 2GB
+        reservations:
+          memory: 512M
+
+  db_helper_importer:
+    image: "registry.gitlab.com/whitespots-public/appsec-portal/back/db_helper:$IMAGE_VERSION"
+    user: nobody
+    restart: always
+    entrypoint: ['sh', 'entrypoint_importer.sh']
+    environment:
+      - IMPORTER_WORKER_CONCURRENCY=${IMPORTER_WORKER_CONCURRENCY:-2}
+      - DB_PASS=${DB_PASS:-postgres}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_NAME=${DB_NAME:-postgres}
+      - DB_HOST=${DB_HOST:-postgres}
+      - DB_PORT=${DB_PORT:-5432}
+      - DOMAIN=${DOMAIN:-example.com}
+      - AMQP_HOST_STRING=${AMQP_HOST_STRING:-amqp://admin:mypass@rabbitmq:5672/}
+      - LICENSE_SERVER_PUBLIC_KEY=${LICENSE_SERVER_PUBLIC_KEY:------BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1FNL5uDzHbXyxgpTbVfE\nXtSn9yjo4wVRTllv8sUHmOCRfDWi7jMtRllIrZODbdPXy1qpfDAJjCw/8mRGR1QZ\nPPjUvcHT2cHFmYqjnO7jt3ywls8Sq+x2R6rG4EonKTWxJ27CoM6q8pl4z/Oqea9t\nwy9DQB9lTUipWLGGWenRtURt5YniGe6mLl/GFX1NVbDZOv7q+N/lHyBu/jFoWnnA\nfuqh9NzFM8yh+h81m+IXqFEU/4y9GRYHx2TKfCg36kYkEHF84DhV8DAiC+wmQbI5\nXNmlBHaW3yIiSnUWqC/QVlsdd8edXKh3pnpLsZ8+4Ni0+3+bV6UXtKUXD4oE2xAT\nvwIDAQAB\n-----END PUBLIC KEY-----}
+      - JWT_PRIVATE_KEY=${JWT_PRIVATE_KEY:------BEGIN RSA PRIVATE KEY-----\nMIIEpQIBAAKCAQEAtpzWykO+IOj1QdNrxvqRH7HQzHvzQoQBxLauTpVl0HMvB7k4\nnLPGMvopSF+KcNkLqMqoX/nGbvzpFqpzvM6CsCuXxCfFmxDvT3+0XDPbVUzzETGV\nwNpVivsLnhZQ4Tp43mUTC+NjEPOpBYvFetSMkhKCN1Qfy/2pDSWdkNAGsDeJ3xzo\nQ+ff2txaZA11EIEk3S/odGT57Xx0oVRL3ngkLFpIsCQi73Q+XgB2ORslvGGDpZm0\n4QNhX618s/tIiRIM+y+ZKIHUpDVG0P4Pc4NzqJnciXYrt8a+CB5Zcv9BShLL/8oF\nfqcHcv3a2x7huODGb2wX76AY2gxin378ln7m1QIDAQABAoIBAQCOlraspuq9vclL\nxe8hJqPM0MaN9LcEmBjdZhuC5uriMh5l9H289i7rvSQhC+EIrqGJAf0pO9py7W5/\nsUbABaxMLS3LD5cftsB2HexSFnfMClK9eS9Kr/EdnVr77MbopwSb+uY9YScIpIm0\n9+eSOocsw+EDnN9bJE0tI9L9sUGXs+KhYGKsbeft96Jf264Pz7Ygz6MLeKRQ4zWJ\nk1LYpInqS1CL382pNgjCSGBsDoksQc+olpD7mdN5Bkpalmhu0UvDOfDekzPLkVd4\n2PBhzxghTaknuuEb7Nh5RgWKCIsYiKjWnCiO3DOFE6Wf9flkjTSq0o31zu5Z+Cy2\noYAuGDD9AoGBAPAootd7tiyt79L0hUgElqo0J4GGme+HtOo0uIsBQ3IBVOTHbaox\nlkKP2IZAMmT39VRM+xIBCJcT7zyjPsUNkJbLXsjYHuE7Q5Hzbd5QPmCEwLtZxst5\nWix0C5wr+8o1ZEMpYkFLySLG170U9PdBsKeiWt/jhXRAGkMHKo9/U8y3AoGBAMKo\neCd/+mixHF9giKRAf/LBiXNqOGY7vVpszeCw59KYkpsEZAAffDEzrcoZpEQHDD1h\nru6VgZ72uXnRAkuYyuHqfZgoJRs6IkB8+GLADNSVxjelar7dXj5+dt48CEbszU3L\nh5UUKWqKqlevw5Cs9A1zpiTAExQD/nyMzsGv6DTTAoGBAORkYOk417mJ+UfQD2i8\nJGTdkKyXy5GGp8EMPmzD2NZ0+b1RA7QV0Gag0jRqnQJ05bU0OJmYrgivhpdOUIWq\nLtWZtxyenE9qwwnsTZJdEdVMqtYBvRMI537bJadyFNTrDdzpYG3kmvYd0FIbuhPj\nPxNNTcsaX3J8+/y+tfUeDB3lAoGANPh3SfhvghHAMMwqIthSeRLlfnzHQDq9el/l\nXmGFlC9kpb56H/Zxa0ou3rI/myt3zzRH0DDrBwEI0/dmcn/vpa6T4tX50wDs1TOs\nu+KbGzZurDHdbHb88HCllDAt6G8EJ0ldadoEszNsy1PPGg2WlBqGebWy+11i4S3I\nDbj6rXUCgYEArKNxIDXdfNN6GdEWEAPW0JEXL/0krnn9udoiD/WcF14yNOp+4rbD\n5bBzHTUp6kM2srPnndSB/msNeESZ+cAi/utr3xm+6WtTGLMRC0Tr7Mw3O+Tjgol6\nLxIA1AUcgJ7lAKOnilPorj7fhk6FLuhd3rX83uxspECO3IC0u5Eac8s=\n-----END RSA PRIVATE KEY-----}
+    depends_on:
+      back:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 2GB
+        reservations:
+          memory: 512M
+
+  dojo_helper:
+    image: "registry.gitlab.com/whitespots-public/appsec-portal/back/dojo_helper:$IMAGE_VERSION"
+    command: [ "celery", "-A", "dojo_helper_service", "worker", "-Q", "dojo_helper_service"]
+    user: nobody
+    restart: always
+    environment:
+      - AMQP_HOST_STRING=${AMQP_HOST_STRING:-amqp://admin:mypass@rabbitmq:5672/}
+    depends_on:
+      - db_helper
+
+  jira_helper:
+    image: "registry.gitlab.com/whitespots-public/appsec-portal/back/jira_helper:$IMAGE_VERSION"
+    command: [ "celery", "-A", "jira_helper_service", "worker", "-Q", "jira_helper_service" ]
+    user: nobody
+    restart: always
+    environment:
+      - AMQP_HOST_STRING=${AMQP_HOST_STRING:-amqp://admin:mypass@rabbitmq:5672/}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 1GB
+        reservations:
+          memory: 512M
+
+  importer:
+    image: "registry.gitlab.com/whitespots-public/appsec-portal/back/importer:$IMAGE_VERSION"
+    command: [ "celery", "-A", "importer_service", "worker", "-Q", "importer_service"]
+    user: nobody
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A importer_service status"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+    depends_on:
+      back:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      - AMQP_HOST_STRING=${AMQP_HOST_STRING:-amqp://admin:mypass@rabbitmq:5672/}
+      - CELERY_BROKER_CONNECTION_RETRY=True
+      - CELERY_BROKER_CONNECTION_MAX_RETRIES=100
+      - CELERY_BROKER_CONNECTION_TIMEOUT=10
+    deploy:
+      resources:
+        limits:
+          memory: 2GB
+        reservations:
+          memory: 512M

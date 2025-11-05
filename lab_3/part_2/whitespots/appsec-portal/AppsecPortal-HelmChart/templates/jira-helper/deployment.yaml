@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  {{- with (mergeOverwrite (deepCopy .Values.global.deploymentAnnotations) .Values.jirahelper.deploymentAnnotations) }}
+  annotations:
+    {{- range $key, $value := . }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+  {{- end }}
+  name: {{ template "jirahelper.fullname" . }}
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "portal.labels" (dict "context" . "component" .Values.jirahelper.name "name" .Values.jirahelper.name) | nindent 4 }}
+spec:
+  {{- with include "portal.strategy" (mergeOverwrite (deepCopy .Values.global.deploymentStrategy) .Values.jirahelper.deploymentStrategy) }}
+  strategy:
+    {{- trim . | nindent 4 }}
+  {{- end }}
+  replicas: {{ .Values.jirahelper.replicas }}
+  selector:
+    matchLabels:
+      {{- include "portal.selectorLabels" (dict "context" . "name" .Values.jirahelper.name) | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        {{- with (mergeOverwrite (deepCopy .Values.global.podAnnotations) .Values.jirahelper.podAnnotations) }}
+        {{- range $key, $value := . }}
+        {{ $key }}: {{ $value | quote }}
+        {{- end }}
+        {{- end }}
+      labels:
+        {{- include "portal.labels" (dict "context" . "component" .Values.jirahelper.name "name" .Values.jirahelper.name) | nindent 8 }}
+        {{- with (mergeOverwrite (deepCopy .Values.global.podLabels) .Values.jirahelper.podLabels) }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      restartPolicy: Always
+      {{- with .Values.jirahelper.imagePullSecrets | default .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with.Values.global.securityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if or .Values.global.nodeSelector .Values.jirahelper.nodeSelector }}
+      nodeSelector: {{ default .Values.global.nodeSelector .Values.jirahelper.nodeSelector | toYaml | nindent 8 }}
+      {{- end }}
+      {{- if or .Values.global.tolerations .Values.jirahelper.tolerations }}
+      tolerations: {{ default .Values.global.tolerations .Values.jirahelper.tolerations | toYaml | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ template "jirahelper.fullname" . }}
+      initContainers:
+        - name: wait-for-rabbitmq
+          image: {{ .Values.global.initContainers.utility.image.repository }}:{{ .Values.global.initContainers.utility.image.tag }}
+          imagePullPolicy: {{ default .Values.global.image.imagePullPolicy .Values.global.initContainers.utility.imagePullPolicy }}
+          env:
+           {{- if .Values.rabbitmq.enabled }}
+            - name: RABBITMQ_HOST
+              value: {{- include "rabbitmq.host" . | quote | indent 1  }}
+            - name: RABBITMQ_PORT
+              value: {{ .Values.rabbitmq.containerPorts.amqp | quote }}
+            {{- else if .Values.externalRabbitmq.enabled }}
+            - name: RABBITMQ_HOST
+              value: {{ .Values.externalRabbitmq.host | quote  }}
+            - name: RABBITMQ_PORT
+              value: {{ .Values.externalRabbitmq.port | quote  }}
+            {{- end }}
+          {{- with .Values.global.initContainers.utility.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 10 }}
+          {{- end }}
+          command: ['sh', '-c', 'until nc -z  $RABBITMQ_HOST $RABBITMQ_PORT; do echo waiting for pod $RABBITMQ_HOST; sleep 5; done;']
+      containers:
+      - name: {{ .Values.jirahelper.name }}
+        image: {{ .Values.jirahelper.image.repository }}:{{ .Values.global.image.tag }}
+        imagePullPolicy: {{ default .Values.global.image.imagePullPolicy .Values.jirahelper.image.imagePullPolicy }}
+        env:
+        - name: AMQP_HOST_STRING
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "portal.fullname" . }}-secret
+              key: AMQP_HOST_STRING
+        command:
+          - "/bin/bash"
+          - "-c"
+          - {{ toYaml .Values.jirahelper.command | trim | quote }}
+        resources:
+          {{- toYaml .Values.jirahelper.resources | nindent 10 }}
+        {{- with .Values.jirahelper.containerSecurityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
