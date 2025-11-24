@@ -186,7 +186,7 @@ services:
 ```
 
 #### Запускаем плохой Docker compose
-![alt text](image-1.png)
+![alt text](bad_docker_compose.png)
 
 #### Почему этот Docker compose плохой?
 
@@ -227,7 +227,7 @@ networks:
 - `Dockerfile` - инструкция по сборке образа контейнера на основе Python/Flask.
 
 #### Запускаем хороший Docker compose
-![alt text](image-2.png)
+![alt text](good_docker_compose.png)
 
 ## Что изменилось?
 
