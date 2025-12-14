@@ -2,3 +2,4 @@
 **/.DS_Store
 lab_3/part_2/whitespots/appsec-portal/data/db/pg_stat_tmp/
 lab_3/part_2/whitespots/appsec-portal/data/db/pg_stat_tmp/*
+node_modules/

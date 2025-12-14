@@ -1,0 +1,14 @@
+{
+  "name": "lab-3",
+  "version": "1.0.0",
+  "description": "CI/CD Lab 3",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest"
+  },
+  "devDependencies": {
+    "jest": "^30.2.0"
+  }
+}

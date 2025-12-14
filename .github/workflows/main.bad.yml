@@ -1,0 +1,27 @@
+name: Main Bad
+
+on:
+jobs:
+  tests-bad:
+    name: tests-bad
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js 24
+        id: setup-node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        id: install-dependencies
+        working-directory: lab_3/part_1
+        run: |
+          npm ci
+
+      - name: Run Jest tests
+        id: run-tests
+        working-directory: lab_3/part_1
+        run: |
+          npm test
