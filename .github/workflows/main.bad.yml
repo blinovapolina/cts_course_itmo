@@ -1,9 +1,9 @@
 name: Main Bad
 
 on:
-  pull_request:
-    paths:
-      - "lab_3/part_1/**"
+  # pull_request:
+  #   paths:
+  #     - "lab_3/part_1/**"
 
 jobs:
   tests-bad:

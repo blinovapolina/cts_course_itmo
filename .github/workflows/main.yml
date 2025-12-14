@@ -1,12 +1,6 @@
 name: Main
 
 on:
-  workflow_run:
-    workflows: ["Main Bad"]
-    types:
-      - completed
-    branches:
-      - "**"
   pull_request:
     paths:
       - "lab_3/part_1/**"
