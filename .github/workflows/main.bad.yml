@@ -1,4 +1,4 @@
-name: Main
+name: Main Bad
 
 on:
   pull_request:
@@ -6,8 +6,8 @@ on:
       - "lab_3/part_1/**"
 
 jobs:
-  tests:
-    name: tests
+  tests-bad:
+    name: tests-bad
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
