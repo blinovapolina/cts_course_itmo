@@ -1,7 +1,6 @@
 name: Main Bad
 
 on:
-  workflow_dispatch:
   # pull_request:
   #   paths:
   #     - "lab_3/part_1/**"
