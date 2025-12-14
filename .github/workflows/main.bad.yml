@@ -22,7 +22,7 @@ jobs:
         id: install-dependencies
         working-directory: lab_3/part_1
         run: |
-          npm install
+          npm ci
 
       - name: Run Jest tests
         id: run-tests

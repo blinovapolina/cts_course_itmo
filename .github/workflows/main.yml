@@ -34,12 +34,13 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: "npm"
+          cache-dependency-path: lab_3/part_1/package-lock.json
 
       - name: Install dependencies
         id: install-dependencies
         working-directory: lab_3/part_1
         run: |
-          npm install
+          npm ci
 
       - name: Run Jest tests
         id: run-tests
